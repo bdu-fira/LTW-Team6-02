@@ -344,6 +344,11 @@ export default function Header() {
                                     Quản lý
                                 </Link>
                             )}
+                            {currentUser && currentUser.role === 'host' && (
+                                <Link to="/host" className="nav-link text-sm font-medium text-primary hover:text-primary-light transition-colors duration-300">
+                                    Host Dashboard
+                                </Link>
+                            )}
                         </nav>
 
                         {/* Action Buttons */}
@@ -435,6 +440,13 @@ export default function Header() {
                                       className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
                                     <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>admin_panel_settings</span>
                                     <span className="text-[15px] font-medium">Quản lý</span>
+                                </Link>
+                            )}
+                            {currentUser && currentUser.role === 'host' && (
+                                <Link to="/host" onClick={() => setIsMobileMenuOpen(false)}
+                                      className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
+                                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>real_estate_agent</span>
+                                    <span className="text-[15px] font-medium">Host Dashboard</span>
                                 </Link>
                             )}
                         </nav>
