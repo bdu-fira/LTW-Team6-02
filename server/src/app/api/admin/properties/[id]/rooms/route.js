@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyAdmin } from '../../../../../lib/auth';
-import db from '../../../../../lib/db';
+import { verifyAdmin } from '../../../../../../lib/auth';
+import db from '../../../../../../lib/db';
 
 // GET: Lấy danh sách room types của một property
 export async function GET(req, { params }) {

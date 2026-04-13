@@ -8,6 +8,7 @@ import Search from './pages/Search';
 import BookingHistory from './pages/BookingHistory';
 import Admin from './pages/Admin';
 import HostDashboard from './pages/HostDashboard';
+import ATM from './pages/ATM';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/bookings" element={<BookingHistory />} />
         <Route path="/quan-ly" element={<Admin />} />
         <Route path="/host" element={<HostDashboard />} />
+        <Route path="/atm" element={<ATM />} />
       </Routes>
     </Router>
   )

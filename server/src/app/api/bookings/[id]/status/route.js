@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../lib/db';
+import db from '../../../../../lib/db';
 
 export async function GET(req, { params }) {
     try {
@@ -21,15 +21,24 @@ export async function GET(req, { params }) {
     }
 }
 
+import jwt from 'jsonwebtoken';
+
 export async function PATCH(req, { params }) {
     try {
         const { id } = await params;
         const body = await req.json();
         const { status, note } = body;
 
-        // Chỉ cho phép cập nhật sang trạng thái 'cancelled' từ phía User/Hệ thống tự động
-        if (!status || status !== 'cancelled') {
-            return NextResponse.json({ message: 'Trạng thái không hợp lệ' }, { status: 400 });
+        const authHeader = req.headers.get('authorization');
+        let currentUser = null;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_here');
+                currentUser = decoded.user;
+            } catch (err) {
+                console.warn('Token verify failed:', err.message);
+            }
         }
 
         // Kiểm tra xem booking có tồn tại không
@@ -39,37 +48,70 @@ export async function PATCH(req, { params }) {
         }
 
         const booking = existingBookings[0];
-        
-        // Chỉ cho phép hủy nếu đơn vẫn đang 'pending'
-        if (booking.status !== 'pending') {
-            return NextResponse.json({ message: 'Không thể hủy đơn hàng này' }, { status: 400 });
+        const [properties] = await db.execute('SELECT host_id FROM properties WHERE id = ?', [booking.property_id]);
+        const isHost = currentUser && properties.length > 0 && properties[0].host_id === currentUser.id;
+        const isAdmin = currentUser && currentUser.role === 'admin';
+
+        // Logic phân quyền
+        if (status === 'cancelled') {
+            // Khách có thể hủy nếu pending
+            if (booking.status !== 'pending' && !isAdmin && !isHost) {
+                return NextResponse.json({ message: 'Không thể hủy đơn hàng này' }, { status: 400 });
+            }
+        } else if (status === 'checked_in' || status === 'checked_out') {
+            // Chỉ Host hoặc Admin được check-in/check-out
+            if (!isHost && !isAdmin) {
+                return NextResponse.json({ message: 'Bạn không có quyền thực hiện thao tác này' }, { status: 403 });
+            }
+            // Logic chuyển trạng thái hợp lệ
+            if (status === 'checked_in' && booking.status !== 'confirmed') {
+                return NextResponse.json({ message: 'Chỉ có thể check-in cho đơn đã xác nhận' }, { status: 400 });
+            }
+            if (status === 'checked_out' && booking.status !== 'checked_in') {
+                return NextResponse.json({ message: 'Chỉ có thể check-out cho đơn đã check-in' }, { status: 400 });
+            }
+        } else {
+            return NextResponse.json({ message: 'Trạng thái không hợp lệ' }, { status: 400 });
         }
 
-        // Cập nhật trạng thái
-        await db.execute('UPDATE bookings SET status = ? WHERE id = ?', [status, id]);
+        // Cập nhật trạng thái và ngày check-out thực tế
+        let historyNote = note;
+        if (status === 'checked_out') {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const originalCheckOut = new Date(booking.check_out);
+            originalCheckOut.setHours(0, 0, 0, 0);
+
+            // Nếu trả phòng sớm hơn dự kiến
+            if (now < originalCheckOut) {
+                if (!historyNote) historyNote = 'Khách trả phòng sớm hơn dự kiến. Hệ thống đã cập nhật lại ngày trả phòng thực tế.';
+            }
+            
+            // Cập nhật ngày check-out về ngày hiện tại
+            await db.execute('UPDATE bookings SET status = ?, check_out = CURDATE() WHERE id = ?', [status, id]);
+        } else {
+            await db.execute('UPDATE bookings SET status = ? WHERE id = ?', [status, id]);
+        }
 
         // Thêm vào lịch sử
-        const historyNote = note || 'Thanh toán thất bại hoặc quá hạn 15 phút';
+        if (!historyNote) {
+            historyNote = status === 'cancelled' ? 'Thanh toán thất bại hoặc hủy bởi người dùng' : `Cập nhật trạng thái sang ${status}`;
+        }
+        
         await db.execute(
             'INSERT INTO booking_status_history (booking_id, status, note, updated_by) VALUES (?, ?, ?, ?)',
-            [id, status, historyNote, booking.customer_id]
+            [id, status, historyNote, currentUser ? currentUser.id : booking.customer_id]
         );
 
-        // Bắn sự kiện Socket.io để các tab khác (hoặc Admin) cập nhật
+        // Bắn sự kiện Socket.io
         if (global.io) {
-            global.io.emit('bookingStatusChanged', {
-                bookingId: id,
-                newStatus: status,
-            });
-            
-            // Bắn vào phòng cụ thể
-            global.io.to(`booking_${id}`).emit('bookingStatusChanged', {
-                bookingId: id,
-                newStatus: status,
-            });
+            const updatePayload = { bookingId: id, newStatus: status };
+            global.io.emit('bookingStatusChanged', updatePayload);
+            global.io.to(`booking_${id}`).emit('bookingStatusChanged', updatePayload);
+            global.io.to(`user_${booking.customer_id}`).emit('bookingStatusChanged', updatePayload);
         }
 
-        return NextResponse.json({ message: 'Cập nhật trạng thái thành công' });
+        return NextResponse.json({ message: 'Cập nhật trạng thái thành công', status });
 
     } catch (err) {
         console.error('Lỗi khi cập nhật trạng thái booking:', err);

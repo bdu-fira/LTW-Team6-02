@@ -8,6 +8,10 @@ const STATUS_MAP = {
     confirmed: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-700' },
     completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-700' },
     cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-700' },
+    not_checked_in: { label: 'Chưa check-in', color: 'bg-orange-100 text-orange-700' },
+    checked_in: { label: 'Đã nhận phòng', color: 'bg-indigo-100 text-indigo-700' },
+    checked_out: { label: 'Đã trả phòng', color: 'bg-teal-100 text-teal-700' },
+    no_show: { label: 'Vắng mặt (No-show)', color: 'bg-gray-200 text-gray-600' },
 };
 
 function formatDate(dateStr) {
@@ -20,8 +24,9 @@ function formatPrice(price) {
     return Number(price).toLocaleString('vi-VN') + 'đ';
 }
 
-function StatusBadge({ status }) {
-    const s = STATUS_MAP[status] || { label: status, color: 'bg-gray-100 text-gray-600' };
+function StatusBadge({ status, displayStatus }) {
+    const activeStatus = displayStatus || status;
+    const s = STATUS_MAP[activeStatus] || { label: activeStatus, color: 'bg-gray-100 text-gray-600' };
     return (
         <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${s.color}`}>
             {s.label}
@@ -56,7 +61,7 @@ function UserBookingCard({ booking }) {
                         </Link>
                         <p className="text-sm text-neutral-500 mt-0.5">{booking.property_location}</p>
                     </div>
-                    <StatusBadge status={booking.status} />
+                    <StatusBadge status={booking.status} displayStatus={booking.displayStatus} />
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-neutral-600">
@@ -85,9 +90,20 @@ function UserBookingCard({ booking }) {
                 )}
 
                 <div className="mt-4 flex items-center justify-between">
-                    <p className="text-xs text-neutral-400">
-                        Đặt ngày {formatDate(booking.created_at)}
-                    </p>
+                    <div>
+                        <p className="text-xs text-neutral-400">
+                            Đặt ngày {formatDate(booking.created_at)}
+                        </p>
+                        {booking.status === 'checked_out' && (
+                            <Link 
+                                to={`/details/${booking.property_id}`}
+                                className="mt-2 inline-flex items-center gap-1 text-primary text-sm font-bold hover:underline"
+                            >
+                                <span className="material-symbols-outlined text-sm">rate_review</span>
+                                Đánh giá ngay
+                            </Link>
+                        )}
+                    </div>
                     <p className="text-base font-bold text-primary">
                         {formatPrice(booking.total_price)}
                     </p>
@@ -124,7 +140,7 @@ function HostBookingCard({ booking }) {
                         </Link>
                         <p className="text-sm text-neutral-500 mt-0.5">{booking.property_location}</p>
                     </div>
-                    <StatusBadge status={booking.status} />
+                    <StatusBadge status={booking.status} displayStatus={booking.displayStatus} />
                 </div>
 
                 {/* Khách hàng */}

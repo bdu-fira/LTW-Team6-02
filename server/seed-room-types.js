@@ -75,42 +75,51 @@ async function seed() {
         for (const prop of properties) {
             const basePrice = Number(prop.price_display) || 1000000;
             const existing = existingByProperty[prop.id] || [];
-
-            // Nếu đã có "Phòng Tiêu chuẩn" cũ → cập nhật total_allotment
-            for (const ex of existing) {
-                if (usedRoomTypeIds.has(ex.id)) {
-                    // Có booking tham chiếu → chỉ cập nhật total_allotment, giữ nguyên dữ liệu
-                    await conn.execute(
-                        'UPDATE room_types SET total_allotment = ?, room_size = ?, bed_type = ? WHERE id = ?',
-                        [10, 25, '1 Giường đôi', ex.id]
-                    );
-                    updated++;
-                }
-            }
-
-            // Kiểm tra xem property đã có đủ 3 loại phòng chưa
             const existingNames = existing.map(e => e.name);
 
             for (const template of roomTypeTemplates) {
-                if (existingNames.includes(template.name)) continue; // đã có rồi thì skip
-
+                const randomAllotment = Math.floor(Math.random() * (7 - 2 + 1)) + 2;
                 const price = Math.round(basePrice * template.priceMultiplier);
 
-                await conn.execute(
-                    `INSERT INTO room_types (property_id, name, price, total_allotment, max_adults, max_children, room_size, bed_type) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        prop.id,
-                        template.name,
-                        price,
-                        template.total_allotment,
-                        template.max_adults,
-                        template.max_children,
-                        template.room_size,
-                        template.bed_type,
-                    ]
-                );
-                inserted++;
+                // Tìm xem đã có loại phòng này chưa
+                const ex = existing.find(e => e.name === template.name);
+
+                if (ex) {
+                    // Đã có rồi -> Cập nhật (giá, số lượng phòng, v.v.)
+                    // Lưu ý: Nếu có booking thì vẫn cập nhật total_allotment vì đây là số lượng phòng vật lý hiện có
+                    await conn.execute(
+                        `UPDATE room_types 
+                         SET price = ?, total_allotment = ?, max_adults = ?, max_children = ?, room_size = ?, bed_type = ? 
+                         WHERE id = ?`,
+                        [
+                            price,
+                            randomAllotment,
+                            template.max_adults,
+                            template.max_children,
+                            template.room_size,
+                            template.bed_type,
+                            ex.id
+                        ]
+                    );
+                    updated++;
+                } else {
+                    // Chưa có -> Insert mới
+                    await conn.execute(
+                        `INSERT INTO room_types (property_id, name, price, total_allotment, max_adults, max_children, room_size, bed_type) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            prop.id,
+                            template.name,
+                            price,
+                            randomAllotment,
+                            template.max_adults,
+                            template.max_children,
+                            template.room_size,
+                            template.bed_type,
+                        ]
+                    );
+                    inserted++;
+                }
             }
         }
 

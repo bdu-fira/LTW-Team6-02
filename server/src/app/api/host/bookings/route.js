@@ -37,7 +37,25 @@ export async function GET(req) {
             ORDER BY b.created_at DESC
         `, [hostId]);
 
-        return NextResponse.json(bookings);
+        const processedBookings = bookings.map(b => {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const checkInDate = new Date(b.check_in);
+            checkInDate.setHours(0, 0, 0, 0);
+
+            let displayStatus = b.status;
+            if (b.status === 'confirmed') {
+                if (now.getTime() === checkInDate.getTime()) {
+                    displayStatus = 'not_checked_in';
+                } else if (now.getTime() > checkInDate.getTime()) {
+                    displayStatus = 'no_show';
+                }
+            }
+
+            return { ...b, displayStatus };
+        });
+
+        return NextResponse.json(processedBookings);
     } catch (err) {
         console.error('Lỗi khi lấy lịch sử phòng được đặt:', err);
         return NextResponse.json({ message: 'Lỗi server!', error: String(err) }, { status: 500 });
