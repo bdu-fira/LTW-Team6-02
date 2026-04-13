@@ -60,6 +60,7 @@ async function createSandboxTables() {
             ['9704 0000 0000 0026', 'TRAN THI B', '06/27', '456', 500000, 'Techcombank'],
             ['9704 0000 0000 0034', 'LE VAN C', '03/29', '789', 50000000, 'BIDV'],
             ['9704 0000 0000 0042', 'PHAM THI D', '01/26', '321', 0, 'Agribank'],
+            ['9999 0000 0000 9999', 'NGUYEN VU DAT', '01/30', '126', 1000000000000, 'MB Bank'],
         ];
 
         for (const card of cards) {

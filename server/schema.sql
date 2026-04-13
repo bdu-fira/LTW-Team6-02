@@ -1,4 +1,12 @@
--- Bảng hợp nhất users chứa tất cả thông tin
+-- Drop tables in reverse order of creation to avoid foreign key constraints
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversations;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS booking_status_history;
+DROP TABLE IF EXISTS booking_coupons;
+DROP TABLE IF EXISTS coupons;
+DROP TABLE IF EXISTS wishlists;
+DROP TABLE IF EXISTS property_rules;
 DROP TABLE IF EXISTS guest_bookings;
 DROP TABLE IF EXISTS reviews;
 DROP TABLE IF EXISTS bookings;
@@ -8,6 +16,8 @@ DROP TABLE IF EXISTS amenities;
 DROP TABLE IF EXISTS property_images;
 DROP TABLE IF EXISTS properties;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS sandbox_otp_logs;
+DROP TABLE IF EXISTS sandbox_cards;
 
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
