@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import db from '../../../../lib/db';
 
 export async function POST(req) {
@@ -73,25 +75,79 @@ export async function POST(req) {
                     message: 'Đặt phòng thành công! Vui lòng chờ xác nhận từ admin.'
                 }, { status: 201 });
             } else {
-                // Email chưa tồn tại → lưu guest_bookings + tạo token
-                const confirmToken = crypto.randomUUID();
+                // Email chưa tồn tại → tạo user mới luôn (auto-registration)
+                const randomPassword = crypto.randomBytes(8).toString('hex');
+                const hashedPassword = await bcrypt.hash(randomPassword, 10);
+                
+                const [userResult] = await connection.execute(
+                    `INSERT INTO users (name, email, password, phone, role) VALUES (?, ?, ?, ?, 'customer')`,
+                    [guest_name, email, hashedPassword, phone]
+                );
+                
+                const newUserId = userResult.insertId;
 
+                // Tạo booking
                 const finalStatus = bookingStatus || 'pending';
+                const [bookingResult] = await connection.execute(
+                    `INSERT INTO bookings (customer_id, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, status, special_requests)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [newUserId, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, finalStatus, special_requests || null]
+                );
+
+                const bookingId = bookingResult.insertId;
+
+                // Tạo payment record
                 const finalPaymentMethod = payment_method || 'momo';
+                const finalPaymentStatus = (finalStatus === 'confirmed') ? 'completed' : 'pending';
+                await connection.execute(
+                    `INSERT INTO payments (booking_id, amount, payment_method, payment_status)
+                     VALUES (?, ?, ?, ?)`,
+                    [bookingId, total_price, finalPaymentMethod, finalPaymentStatus]
+                );
+
+                // Lưu lịch sử trạng thái
+                await connection.execute(
+                    `INSERT INTO booking_status_history (booking_id, status, note, updated_by) VALUES (?, 'pending', 'Chờ xác nhận', ?)`,
+                    [bookingId, newUserId]
+                );
+
+                // Tạo token thiết lập mật khẩu
+                const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
+                const setupToken = jwt.sign(
+                    { user: { id: newUserId }, action: 'setup_password' },
+                    jwtSecret,
+                    { expiresIn: '7d' } // Mật khẩu có thể setup trong vòng 7 ngày
+                );
+
+                // Push email ảo vào system_emails
+                const setupLink = `http://localhost:5173/setup-password?token=${setupToken}`;
+                const emailSubject = `[Xác nhận] Tạo mật khẩu & Đặt phòng #${bookingId} thành công`;
+                const emailContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #1d4ed8; text-align: center;">Đặt phòng thành công!</h2>
+                        <p>Xin chào <strong>${guest_name}</strong>,</p>
+                        <p>Cảm ơn bạn đã đặt phòng tại hệ thống của chúng tôi. Mã đặt phòng của bạn là <strong>#${bookingId}</strong>.</p>
+                        <hr style="border: 0; border-top: 1px solid #ebebeb; margin: 20px 0;">
+                        <p>Hệ thống đã tự động tạo một tài khoản để bạn dễ dàng quản lý lịch sử đặt phòng của mình bằng email <strong>${email}</strong>.</p>
+                        <p>Vui lòng click vào nút bên dưới để thiết lập mật khẩu cho tài khoản của bạn:</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${setupLink}" style="background-color: #1d4ed8; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Xem chi tiết & Tạo mật khẩu</a>
+                        </div>
+                        <p style="color: #6b7280; font-size: 13px;">Nếu bạn không thực hiện giao dịch này, vui lòng bỏ qua email.</p>
+                    </div>
+                `;
 
                 await connection.execute(
-                    `INSERT INTO guest_bookings (email, phone, guest_name, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, special_requests, confirm_token, payment_method, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [email, phone, guest_name, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, special_requests || null, confirmToken, finalPaymentMethod, finalStatus]
+                    `INSERT INTO system_emails (recipient_email, subject, content) VALUES (?, ?, ?)`,
+                    [email, emailSubject, emailContent]
                 );
 
                 await connection.commit();
 
                 return NextResponse.json({
                     status: 'pending',
-                    token: confirmToken,
-                    email: email,
-                    message: 'Vui lòng xác nhận email và đặt mật khẩu để hoàn tất đặt phòng.'
+                    booking_id: bookingId,
+                    message: 'Đặt phòng thành công! Mật khẩu và thông tin quản lý đã được gửi vào email của bạn.'
                 }, { status: 201 });
             }
         } catch (dbError) {

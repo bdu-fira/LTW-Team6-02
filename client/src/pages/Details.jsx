@@ -90,6 +90,61 @@ export default function Details() {
         setCheckOut(val);
     };
 
+    const handleBookNow = async (isMobile = false) => {
+        if (!checkIn || !checkOut) {
+            setDateError('Vui lòng chọn đầy đủ ngày nhận và trả phòng.');
+            return;
+        }
+
+        let selectedRoomId = roomType;
+        if (!selectedRoomId && property && property.rooms && property.rooms.length > 0) {
+            selectedRoomId = String(property.rooms[0].id);
+        }
+
+        if (!selectedRoomId) {
+            setDateError('Loại phòng không hợp lệ.');
+            return;
+        }
+
+        setIsProcessing(true);
+        setDateError('');
+
+        try {
+            const res = await fetch('/api/check-availability', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    property_id: property.id,
+                    room_type_id: selectedRoomId,
+                    check_in: checkIn,
+                    check_out: checkOut,
+                    number_of_rooms: 1
+                })
+            });
+
+            const data = await res.json();
+            setIsProcessing(false);
+
+            if (data.success) {
+                if (isMobile) {
+                    setMobileCheckIn(checkIn);
+                    setMobileCheckOut(checkOut);
+                    setMobileRoomType(selectedRoomId);
+                    setIsMobilePaymentOpen(true);
+                    setIsSuccess(false);
+                    setPaymentError('');
+                } else {
+                    navigate(`/payment?id=${property.id}&checkIn=${checkIn}&checkOut=${checkOut}&roomTypeId=${selectedRoomId}`);
+                }
+            } else {
+                setDateError(data.message || 'Phòng đã hết trong khoảng thời gian này.');
+            }
+        } catch (error) {
+            setIsProcessing(false);
+            setDateError('Lỗi kết nối máy chủ. Vui lòng thử lại sau.');
+        }
+    };
+
     useEffect(() => {
         const fetchProperties = async () => {
             try {
@@ -645,113 +700,6 @@ export default function Details() {
                                             <p className="text-neutral-500 dark:text-neutral-300 text-sm mb-8">Chưa có đánh giá nào cho chỗ ở này.</p>
                                         )}
 
-                                        {/* Form viết đánh giá */}
-                                        {(() => {
-                                            if (!currentUser) {
-                                                return (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            window.dispatchEvent(new CustomEvent('openLoginModal', {
-                                                                detail: { message: 'Đăng nhập để đánh giá chỗ ở' }
-                                                            }));
-                                                        }}
-                                                        className="flex items-center gap-2 px-5 py-3 rounded-lg border border-neutral-700 dark:border-white text-neutral-700 dark:text-white font-bold text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                                                    >
-                                                        <span className="material-symbols-outlined !text-lg">login</span>
-                                                        Đăng nhập để đánh giá
-                                                    </button>
-                                                );
-                                            }
-
-                                            if (userBookings.length === 0) {
-                                                return (
-                                                    <p className="text-neutral-400 dark:text-neutral-500 text-sm italic">
-                                                        Bạn cần có booking đã xác nhận tại chỗ ở này để đánh giá.
-                                                    </p>
-                                                );
-                                            }
-
-                                            return (
-                                                <form onSubmit={handleSubmitReview} className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 flex flex-col gap-4">
-                                                    <h3 className="font-bold text-neutral-700 dark:text-white">Viết đánh giá của bạn</h3>
-
-                                                    {/* Chọn booking */}
-                                                    <div>
-                                                        <label className="block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-300 mb-1">Chọn booking</label>
-                                                        <select
-                                                            value={reviewForm.booking_id}
-                                                            onChange={(e) => setReviewForm(prev => ({ ...prev, booking_id: e.target.value }))}
-                                                            className="w-full px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                        >
-                                                            <option value="">-- Chọn booking --</option>
-                                                            {userBookings.map((b) => (
-                                                                <option key={b.id} value={b.id}>
-                                                                    #{b.id} · {new Date(b.check_in).toLocaleDateString('vi-VN')} → {new Date(b.check_out).toLocaleDateString('vi-VN')} · {b.room_type_name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-
-                                                    {/* Rating sao */}
-                                                    <div>
-                                                        <label className="block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-300 mb-2">Đánh giá</label>
-                                                        <div className="flex items-center gap-1">
-                                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                                <button
-                                                                    key={star}
-                                                                    type="button"
-                                                                    onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
-                                                                    className="p-0.5 transition-transform hover:scale-110"
-                                                                >
-                                                                    <span
-                                                                        className="material-symbols-outlined !text-2xl"
-                                                                        style={{
-                                                                            color: star <= reviewForm.rating ? '#f59e0b' : '#d1d5db',
-                                                                            fontVariationSettings: `'FILL' ${star <= reviewForm.rating ? 1 : 0}`
-                                                                        }}
-                                                                    >star</span>
-                                                                </button>
-                                                            ))}
-                                                            <span className="ml-2 text-sm text-neutral-500 dark:text-neutral-300">{reviewForm.rating}/5</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Comment */}
-                                                    <div>
-                                                        <label className="block text-xs font-bold uppercase text-neutral-500 dark:text-neutral-300 mb-1">Nhận xét</label>
-                                                        <textarea
-                                                            value={reviewForm.comment}
-                                                            onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
-                                                            placeholder="Chia sẻ trải nghiệm của bạn..."
-                                                            rows={3}
-                                                            className="w-full px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-white text-sm resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                        />
-                                                    </div>
-
-                                                    {reviewError && <p className="text-red-500 text-xs">{reviewError}</p>}
-                                                    {reviewSuccess && <p className="text-green-500 text-xs font-bold">{reviewSuccess}</p>}
-
-                                                    <button
-                                                        type="submit"
-                                                        disabled={reviewSubmitting}
-                                                        className="self-start flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                    >
-                                                        {reviewSubmitting ? (
-                                                            <>
-                                                                <span className="material-symbols-outlined !text-lg animate-spin">progress_activity</span>
-                                                                Đang gửi...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span className="material-symbols-outlined !text-lg">send</span>
-                                                                Gửi đánh giá
-                                                            </>
-                                                        )}
-                                                    </button>
-                                                </form>
-                                            );
-                                        })()}
                                     </div>
                                     <div ref={mapSectionRef}>
                                         <h2 className="text-xl font-bold text-neutral-700 dark:text-white mb-4">Vị trí chỗ ở</h2>
@@ -836,12 +784,11 @@ export default function Details() {
                                                     <span>Chọn ngày để đặt</span>
                                                 </button>
                                             ) : (
-                                                <Link to={`/payment?id=${property.id}&checkIn=${checkIn}&checkOut=${checkOut}&roomTypeId=${roomType}`} className="w-full">
-                                                    <button
-                                                        className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90">
-                                                        <span>Đặt ngay</span>
-                                                    </button>
-                                                </Link>
+                                                <button
+                                                    onClick={() => handleBookNow(false)}
+                                                    className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90">
+                                                    <span>Đặt ngay</span>
+                                                </button>
                                             )}
                                             <p className="text-center text-sm text-neutral-500 dark:text-neutral-200">
                                                 Bạn chưa bị
@@ -886,14 +833,7 @@ export default function Details() {
                                 )}
                             </div>
                             <button
-                                onClick={() => {
-                                    setMobileCheckIn(checkIn);
-                                    setMobileCheckOut(checkOut);
-                                    setMobileRoomType(roomType || (rooms[0] && String(rooms[0].id)));
-                                    setIsMobilePaymentOpen(true);
-                                    setIsSuccess(false);
-                                    setPaymentError('');
-                                }}
+                                onClick={() => handleBookNow(true)}
                                 className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all shadow-lg shadow-primary/25"
                             >
                                 <span>{(!checkIn || !checkOut) ? 'Chọn ngay' : 'Đặt ngay'}</span>

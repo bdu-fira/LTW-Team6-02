@@ -28,12 +28,14 @@ export async function GET(req) {
                 rt.name as room_type_name, rt.price as room_type_price,
                 pi.image_url as property_image,
                 pay.id as payment_id, pay.amount as payment_amount, pay.payment_method,
-                pay.payment_status, pay.transaction_id, pay.payment_date
+                pay.payment_status, pay.transaction_id, pay.payment_date,
+                r.rating as review_rating
             FROM bookings b
             JOIN properties p ON b.property_id = p.id
             JOIN room_types rt ON b.room_type_id = rt.id
             LEFT JOIN property_images pi ON pi.property_id = p.id AND pi.is_main = 1
             LEFT JOIN payments pay ON pay.booking_id = b.id
+            LEFT JOIN reviews r ON r.booking_id = b.id
             WHERE b.customer_id = ?
             ORDER BY b.created_at DESC
         `, [userId]);

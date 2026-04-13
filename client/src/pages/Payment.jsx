@@ -15,12 +15,14 @@ export default function Payment() {
     const [loading, setLoading] = useState(true);
     const [paymentMethod, setPaymentMethod] = useState('card');
     const [discountCode, setDiscountCode] = useState('');
+
     const [appliedDiscount, setAppliedDiscount] = useState(null);
     const [discountMessage, setDiscountMessage] = useState({ text: '', type: '' });
 
     const [specialRequests, setSpecialRequests] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [redirectCountdown, setRedirectCountdown] = useState(5);
     const [bookingId, setBookingId] = useState(null);
     const [paymentError, setPaymentError] = useState('');
 
@@ -41,6 +43,20 @@ export default function Payment() {
     const [guestName, setGuestName] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
     const [guestPhone, setGuestPhone] = useState('');
+
+    // Handle redirection when success
+    useEffect(() => {
+        if (isSuccess && isLoggedIn) {
+            if (redirectCountdown > 0) {
+                const timer = setTimeout(() => {
+                    setRedirectCountdown(prev => prev - 1);
+                }, 1000);
+                return () => clearTimeout(timer);
+            } else {
+                navigate('/bookings');
+            }
+        }
+    }, [isSuccess, redirectCountdown, isLoggedIn, navigate]);
 
     useEffect(() => {
         const fetchProperties = async () => {
@@ -317,12 +333,8 @@ export default function Payment() {
                         return;
                     }
                     if (data.status === 'confirmed' || data.status === 'pending') {
-                        if (data.token) {
-                            navigate(`/booking-alert?email=${encodeURIComponent(guestEmail.trim())}`);
-                        } else {
-                            setBookingId(data.booking_id);
-                            setIsSuccess(true);
-                        }
+                        setBookingId(data.booking_id);
+                        setIsSuccess(true);
                     }
                 } else {
                     setPaymentError(data.message || 'Đặt phòng thất bại.');
@@ -617,19 +629,48 @@ export default function Payment() {
 
             {/* Success Modal */}
             {isSuccess && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-                    <div className="bg-white dark:bg-neutral-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full mx-4 transform transition-all scale-100 animate-fade-in-up">
-                        <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-green-600 dark:text-green-400 !text-5xl">check_circle</span>
+                <div className="fixed inset-0 z-[60] bg-white dark:bg-neutral-900 flex items-center justify-center animate-fade-in">
+                    <div className="max-w-md w-full px-6 py-12 flex flex-col items-center text-center">
+                        <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center mb-8 shadow-xl shadow-green-500/20 animate-scale-in">
+                            <span className="material-symbols-outlined !text-6xl">check_circle</span>
                         </div>
-                        <div className="text-center">
-                            <h3 className="text-2xl font-bold text-neutral-700 dark:text-white mb-2">Thanh toán thành công!</h3>
-                            <p className="text-neutral-500 dark:text-neutral-300">Cảm ơn bạn đã đặt phòng. Mã đặt phòng của bạn là <span className="font-bold text-primary">#{bookingId}</span></p>
-                        </div>
-                        <button onClick={() => navigate('/bookings')}
-                            className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors">
-                            Xem lịch sử đặt phòng
-                        </button>
+                        
+                        <h2 className="text-3xl font-black text-green-600 dark:text-green-400 mb-4 animate-fade-in-up">
+                            Thanh toán thành công
+                        </h2>
+                        
+                        <p className="text-neutral-500 dark:text-neutral-300 mb-10 leading-relaxed animate-fade-in-up transition-delay-100">
+                            Đơn hàng của quý khách đã thanh toán thành công. Aoklevart sẽ sớm liên hệ với quý khách sớm để bàn giao sản phẩm, dịch vụ.
+                        </p>
+
+                        {isLoggedIn ? (
+                            <div className="space-y-4 w-full animate-fade-in-up transition-delay-200">
+                                <p className="text-sm text-neutral-400 italic">
+                                    Hệ thống sẽ tự động chuyển về lịch sử đặt phòng sau <span className="font-bold text-primary">{redirectCountdown}</span> giây...
+                                </p>
+                                <button
+                                    onClick={() => navigate('/bookings')}
+                                    className="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    Xem lịch sử đặt phòng
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3 w-full animate-fade-in-up transition-delay-200">
+                                <button
+                                    onClick={() => navigate('/')}
+                                    className="w-full py-4 bg-[#2c4465] text-white rounded-lg font-bold shadow-lg hover:bg-[#1e2f47] transition-colors"
+                                >
+                                    Về trang chủ
+                                </button>
+                                <button
+                                    onClick={() => navigate('/')}
+                                    className="w-full py-4 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-lg font-bold hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

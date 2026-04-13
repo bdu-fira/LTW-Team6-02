@@ -35,20 +35,53 @@ export default function Header() {
     const [forgotLoading, setForgotLoading] = useState(false);
     const [forgotCountdown, setForgotCountdown] = useState(300);
 
+    const handleLogout = () => {
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('token');
+        localStorage.removeItem('lastActivity');
+        window.dispatchEvent(new Event('userUpdated'));
+        const protectedRoutes = ['/profile', '/bookings', '/quan-ly', '/host', '/admin'];
+        if (protectedRoutes.some(route => location.pathname.startsWith(route))) {
+            navigate('/');
+        }
+    };
+
     useEffect(() => {
+        const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours
+
         const checkUser = () => {
             const storedUser = localStorage.getItem('currentUser');
+            const lastActivity = localStorage.getItem('lastActivity');
+            const now = Date.now();
+
             if (storedUser) {
+                // Check for inactivity
+                if (lastActivity && now - parseInt(lastActivity) > INACTIVITY_LIMIT) {
+                    handleLogout();
+                    return;
+                }
                 setCurrentUser(JSON.parse(storedUser));
             } else {
                 setCurrentUser(null);
             }
         };
 
+        const updateActivity = () => {
+            localStorage.setItem('lastActivity', Date.now().toString());
+        };
+
         // Check initially
         checkUser();
 
-        // Listen for dynamic updates (like from the Profile page)
+        // Activity listeners
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        events.forEach(event => window.addEventListener(event, updateActivity));
+
+        // Periodic check (every 5 minutes)
+        const interval = setInterval(checkUser, 5 * 60 * 1000);
+
+        // Listen for dynamic updates
         window.addEventListener('userUpdated', checkUser);
 
         // Listen for openLoginModal event from other components
@@ -62,6 +95,8 @@ export default function Header() {
         window.addEventListener('openLoginModal', handleOpenLoginModal);
 
         return () => {
+            events.forEach(event => window.removeEventListener(event, updateActivity));
+            clearInterval(interval);
             window.removeEventListener('userUpdated', checkUser);
             window.removeEventListener('openLoginModal', handleOpenLoginModal);
         };
@@ -147,16 +182,6 @@ export default function Header() {
         } catch (error) {
             console.error('Registration error:', error);
             setRegError('Lỗi kết nối máy chủ');
-        }
-    };
-
-    const handleLogout = () => {
-        setCurrentUser(null);
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('token');
-        window.dispatchEvent(new Event('userUpdated'));
-        if (location.pathname === '/profile') {
-            navigate('/');
         }
     };
 

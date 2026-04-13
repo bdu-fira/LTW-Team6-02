@@ -12,6 +12,7 @@ export default function HostDashboard() {
     const [bookings, setBookings] = useState([]);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
+    const [walkInModal, setWalkInModal] = useState({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('currentUser'));
@@ -121,19 +122,32 @@ export default function HostDashboard() {
         }
     };
 
-    const handleQuickRent = async (propertyId, roomTypeId) => {
-        const nightsStr = window.prompt('Khách vãng lai muốn ở bao nhiêu đêm?', '1');
-        if (!nightsStr) return;
-        
-        const nights = parseInt(nightsStr);
-        if (isNaN(nights) || nights <= 0) {
-            alert('Số đêm không hợp lệ');
+    const handleQuickRent = (propertyId, roomTypeId) => {
+        const defaultCheckIn = scheduleDate || new Date().toISOString().split('T')[0];
+        let ds = new Date(defaultCheckIn);
+        ds.setDate(ds.getDate() + 1);
+        const defaultCheckOut = ds.toISOString().split('T')[0];
+
+        setWalkInModal({
+            isOpen: true,
+            propertyId,
+            roomTypeId,
+            checkIn: defaultCheckIn,
+            checkOut: defaultCheckOut
+        });
+    };
+
+    const submitWalkInBooking = async () => {
+        const { propertyId, roomTypeId, checkIn, checkOut } = walkInModal;
+        if (!checkIn || !checkOut) {
+            alert('Vui lòng chọn ngày Check-in và Check-out');
             return;
         }
 
-        const checkOutDate = new Date();
-        checkOutDate.setDate(checkOutDate.getDate() + nights);
-        const checkOutStr = checkOutDate.toISOString().split('T')[0];
+        if (new Date(checkOut) <= new Date(checkIn)) {
+            alert('Ngày Check-out phải sau ngày Check-in');
+            return;
+        }
 
         try {
             const res = await fetch('/api/host/bookings/walk-in', {
@@ -142,20 +156,22 @@ export default function HostDashboard() {
                 body: JSON.stringify({
                     property_id: propertyId,
                     room_type_id: roomTypeId,
-                    check_out: checkOutStr,
+                    check_in: checkIn,
+                    check_out: checkOut,
                     number_of_rooms: 1
                 })
             });
 
             if (res.ok) {
-                alert('Đã cho thuê phòng thành công!');
+                alert('Đã thêm lịch thành công!');
+                setWalkInModal({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
                 fetchData();
             } else {
                 const data = await res.json();
-                alert(data.message || 'Lỗi khi đặt phòng nhanh');
+                alert(data.message || 'Lỗi khi thêm lịch');
             }
         } catch (err) {
-            console.error('Lỗi Quick Rent:', err);
+            console.error('Lỗi Thêm lịch:', err);
             alert('Lỗi kết nối máy chủ');
         }
     };
@@ -621,14 +637,34 @@ export default function HostDashboard() {
                                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Tình hình phòng trống</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {selectedProperty.rooms?.map(roomType => {
-                                        const targetDate = new Date(scheduleDate).setHours(0,0,0,0);
-                                        const occupiedCount = bookings.filter(b => 
-                                            b.property_id === selectedProperty.id && 
-                                            b.room_type_id === roomType.id &&
-                                            b.status !== 'cancelled' &&
-                                            new Date(b.check_in).setHours(0,0,0,0) <= targetDate &&
-                                            targetDate < new Date(b.check_out).setHours(0,0,0,0)
-                                        ).reduce((sum, b) => sum + (b.number_of_rooms || 1), 0);
+                                        const now = new Date();
+                                        now.setHours(0,0,0,0);
+                                        const targetDate = new Date(scheduleDate);
+                                        targetDate.setHours(0,0,0,0);
+                                        const isToday = now.getTime() === targetDate.getTime();
+
+                                        const occupiedCount = bookings.filter(b => {
+                                            const b_propId = Number(b.property_id);
+                                            const s_propId = Number(selectedProperty.id);
+                                            const b_roomTypeId = Number(b.room_type_id);
+                                            const rt_id = Number(roomType.id);
+
+                                            if (b_propId !== s_propId || b_roomTypeId !== rt_id) return false;
+                                            if (b.status === 'cancelled') return false;
+
+                                            const checkIn = new Date(b.check_in);
+                                            checkIn.setHours(0,0,0,0);
+                                            const checkOut = new Date(b.check_out);
+                                            checkOut.setHours(0,0,0,0);
+
+                                            // Logic 1: Nằm trong khoảng ngày đặt
+                                            const isInRange = targetDate >= checkIn && targetDate < checkOut;
+                                            
+                                            // Logic 2: Nếu là hôm nay và khách đã Check-in (giữ phòng cho đến khi check-out)
+                                            const isCheckedInToday = isToday && b.status === 'checked_in';
+
+                                            return isInRange || isCheckedInToday;
+                                        }).reduce((sum, b) => sum + (Number(b.number_of_rooms) || 1), 0);
 
                                         const available = Math.max(0, roomType.total_allotment - occupiedCount);
                                         const occupancyRate = (occupiedCount / roomType.total_allotment) * 100;
@@ -645,9 +681,9 @@ export default function HostDashboard() {
                                                         <button 
                                                             onClick={() => handleQuickRent(selectedProperty.id, roomType.id)}
                                                             className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded shadow-sm hover:scale-105 transition-transform"
-                                                            title="Cho thuê ngay"
+                                                            title="Thêm lịch cho khách offline/nền tảng khác"
                                                         >
-                                                            Cho thuê
+                                                            Thêm lịch
                                                         </button>
                                                     )}
                                                 </div>
@@ -784,6 +820,52 @@ export default function HostDashboard() {
                                         </div>
                                     );
                                 })()}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Walk-in Booking Modal */}
+                {walkInModal.isOpen && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setWalkInModal({ ...walkInModal, isOpen: false })}></div>
+                        <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-md animate-scale-in">
+                            <h3 className="text-xl font-bold font-display text-gray-800 mb-5 relative pl-4 border-l-4 border-primary">
+                                Thêm lịch
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày Check-in</label>
+                                    <input 
+                                        type="date"
+                                        value={walkInModal.checkIn}
+                                        onChange={(e) => setWalkInModal({ ...walkInModal, checkIn: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-700"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày Check-out</label>
+                                    <input 
+                                        type="date"
+                                        value={walkInModal.checkOut}
+                                        onChange={(e) => setWalkInModal({ ...walkInModal, checkOut: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-700"
+                                    />
+                                </div>
+                            </div>
+                            <div className="mt-8 flex justify-end gap-3">
+                                <button 
+                                    onClick={() => setWalkInModal({ ...walkInModal, isOpen: false })}
+                                    className="px-5 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                                >
+                                    Hủy
+                                </button>
+                                <button 
+                                    onClick={submitWalkInBooking}
+                                    className="px-5 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                >
+                                    Xác nhận
+                                </button>
                             </div>
                         </div>
                     </div>

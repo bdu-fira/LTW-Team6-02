@@ -13,9 +13,9 @@ export async function POST(req) {
         const hostId = authResult.user.id;
 
         const body = await req.json();
-        const { property_id, room_type_id, check_out, number_of_rooms = 1 } = body;
+        const { property_id, room_type_id, check_in, check_out, number_of_rooms = 1 } = body;
 
-        if (!property_id || !room_type_id || !check_out) {
+        if (!property_id || !room_type_id || !check_out || !check_in) {
             return NextResponse.json({ message: 'Thiếu thông tin đặt phòng' }, { status: 400 });
         }
 
@@ -42,8 +42,8 @@ export async function POST(req) {
         }
         const roomPrice = Number(roomTypes[0].price);
 
-        // 3. Tính toán tổng tiền sơ bộ (tạm thời tính 1 đêm hoặc chênh lệch ngày)
-        const checkInDate = new Date();
+        // 3. Tính toán tổng tiền sơ bộ
+        const checkInDate = new Date(check_in);
         checkInDate.setHours(0, 0, 0, 0);
         const checkOutDate = new Date(check_out);
         checkOutDate.setHours(0, 0, 0, 0);
@@ -53,21 +53,25 @@ export async function POST(req) {
         
         const totalPrice = roomPrice * nights * number_of_rooms;
 
-        // 4. Tạo đơn hàng và check-in luôn
+        // 4. Tạo đơn hàng
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const autoStatus = checkInDate <= now ? 'checked_in' : 'confirmed';
+
         const [bookingResult] = await db.execute(`
             INSERT INTO bookings (
                 customer_id, property_id, room_type_id, 
                 check_in, check_out, number_of_rooms, 
                 total_price, status
-            ) VALUES (?, ?, ?, CURDATE(), ?, ?, ?, 'checked_in')
-        `, [walkInUserId, property_id, room_type_id, check_out, number_of_rooms, totalPrice]);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [walkInUserId, property_id, room_type_id, check_in, check_out, number_of_rooms, totalPrice, autoStatus]);
 
         const bookingId = bookingResult.insertId;
 
         // 5. Ghi lịch sử
         await db.execute(
             'INSERT INTO booking_status_history (booking_id, status, note, updated_by) VALUES (?, ?, ?, ?)',
-            [bookingId, 'checked_in', 'Thuê phòng tại chỗ (Khách vãng lai)', hostId]
+            [bookingId, autoStatus, 'Thêm lịch thuê phòng (Khác)', hostId]
         );
 
         return NextResponse.json({ 

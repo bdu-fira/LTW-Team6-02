@@ -9,6 +9,7 @@ const MomoPayment = () => {
     const [loading, setLoading] = useState(true);
     const [countdown, setCountdown] = useState(900); // 15 minutes in seconds
     const [status, setStatus] = useState('pending');
+    const [redirectCountdown, setRedirectCountdown] = useState(5);
     const socketRef = useRef(null);
     const timerRef = useRef(null);
 
@@ -23,8 +24,8 @@ const MomoPayment = () => {
                     setBookingData(data);
                     setStatus(data.status);
                     if (data.status !== 'pending') {
-                        // If already processed, redirect after 3 seconds
-                        setTimeout(() => navigate('/bookings'), 3000);
+                        // Let the regular success screen logic handle it or just set status
+                        setStatus(data.status);
                     }
                 } else {
                     console.error('Booking not found');
@@ -76,12 +77,20 @@ const MomoPayment = () => {
     // Handle redirection when status changes
     useEffect(() => {
         if (status === 'confirmed' || status === 'completed') {
-            const redirectTimer = setTimeout(() => {
-                navigate('/bookings');
-            }, 3000);
-            return () => clearTimeout(redirectTimer);
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Member flow: countdown and redirect
+                if (redirectCountdown > 0) {
+                    const timer = setTimeout(() => {
+                        setRedirectCountdown(prev => prev - 1);
+                    }, 1000);
+                    return () => clearTimeout(timer);
+                } else {
+                    navigate('/bookings');
+                }
+            }
         }
-    }, [status, navigate]);
+    }, [status, redirectCountdown, navigate]);
 
     // Countdown timer
     useEffect(() => {
@@ -180,13 +189,34 @@ const MomoPayment = () => {
                                 </div>
                             </>
                         ) : status === 'confirmed' || status === 'completed' ? (
-                            <div className="py-20 text-center animate-scale-in">
-                                <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30">
+                            <div className="py-12 text-center animate-scale-in flex flex-col items-center">
+                                <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-500/30">
                                     <span className="material-symbols-outlined !text-6xl">check_circle</span>
                                 </div>
-                                <h2 className="text-3xl font-black text-neutral-800 dark:text-white mb-2">Thanh toán thành công!</h2>
-                                <p className="text-neutral-500 mb-8">Admin đã duyệt đơn của bạn. Hệ thống sẽ chuyển hướng trong giây lát...</p>
-                                <button onClick={() => navigate('/bookings')} className="px-8 py-3 bg-primary text-white rounded-xl font-bold shadow-lg">Đến Lịch sử ngay</button>
+                                <h2 className="text-3xl font-black text-green-600 dark:text-green-400 mb-4">Thanh toán thành công</h2>
+                                <p className="text-neutral-500 dark:text-neutral-300 mb-10 max-w-sm leading-relaxed">
+                                    Đơn hàng của quý khách đã thanh toán thành công. Aoklevart sẽ sớm liên hệ với quý khách sớm để bàn giao sản phẩm, dịch vụ.
+                                </p>
+                                
+                                {localStorage.getItem('token') ? (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-neutral-400 italic">
+                                            Hệ thống sẽ tự động chuyển về lịch sử đặt phòng sau <span className="font-bold text-primary">{redirectCountdown}</span> giây...
+                                        </p>
+                                        <button onClick={() => navigate('/bookings')} className="px-10 py-3.5 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-transform">
+                                            Đến Lịch sử ngay
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-3 w-full max-w-[240px]">
+                                        <button onClick={() => navigate('/')} className="w-full py-3.5 bg-[#2c4465] text-white rounded-lg font-bold shadow-lg hover:bg-[#1e2f47] transition-colors">
+                                            Về trang chủ
+                                        </button>
+                                        <button onClick={() => navigate('/')} className="w-full py-3.5 border border-neutral-200 text-neutral-600 rounded-lg font-bold hover:bg-neutral-50 transition-colors">
+                                            Đóng
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="py-20 text-center animate-scale-in">

@@ -260,3 +260,16 @@ CREATE TABLE sandbox_otp_logs (
   status VARCHAR(20) DEFAULT 'PENDING',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =====================================================
+-- EMAIL CLONE SYSTEM: Lưu thông báo email pseudo
+-- =====================================================
+
+CREATE TABLE system_emails (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  recipient_email VARCHAR(255) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

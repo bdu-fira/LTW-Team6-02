@@ -24,7 +24,7 @@ export async function GET(req) {
                 b.id, b.check_in, b.check_out, b.number_of_rooms, b.total_price, b.status,
                 b.special_requests, b.created_at,
                 p.id as property_id, p.name as property_name, p.location as property_location,
-                rt.name as room_type_name,
+                rt.id as room_type_id, rt.name as room_type_name,
                 u.id as customer_id, u.name as customer_name, u.email as customer_email,
                 u.phone as customer_phone, u.avatar as customer_avatar,
                 pi.image_url as property_image

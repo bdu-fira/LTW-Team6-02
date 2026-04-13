@@ -34,7 +34,7 @@ function StatusBadge({ status, displayStatus }) {
     );
 }
 
-function UserBookingCard({ booking }) {
+function UserBookingCard({ booking, onReviewClick }) {
     return (
         <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden flex flex-col sm:flex-row">
             <div className="w-full sm:w-48 h-40 sm:h-auto flex-shrink-0 bg-neutral-100">
@@ -89,24 +89,43 @@ function UserBookingCard({ booking }) {
                     </p>
                 )}
 
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 flex items-end justify-between">
                     <div>
                         <p className="text-xs text-neutral-400">
                             Đặt ngày {formatDate(booking.created_at)}
                         </p>
+                    </div>
+                    <div className="flex flex-col items-end">
+                        <p className="text-base font-bold text-primary">
+                            {formatPrice(booking.total_price)}
+                        </p>
                         {booking.status === 'checked_out' && (
-                            <Link 
-                                to={`/details/${booking.property_id}`}
-                                className="mt-2 inline-flex items-center gap-1 text-primary text-sm font-bold hover:underline"
-                            >
-                                <span className="material-symbols-outlined text-sm">rate_review</span>
-                                Đánh giá ngay
-                            </Link>
+                            booking.review_rating ? (
+                                <div className="mt-2 flex items-center gap-1 text-sm text-neutral-500">
+                                    <div className="flex gap-0.5">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <span 
+                                                key={star} 
+                                                className="material-symbols-outlined !text-[14px]" 
+                                                style={{
+                                                    color: star <= booking.review_rating ? '#f59e0b' : '#e5e7eb',
+                                                    fontVariationSettings: `'FILL' ${star <= booking.review_rating ? 1 : 0}`
+                                                }}
+                                            >star</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={() => onReviewClick(booking)}
+                                    className="mt-2 inline-flex items-center gap-1 text-primary text-sm font-bold hover:underline"
+                                >
+                                    <span className="material-symbols-outlined !text-lg">rate_review</span>
+                                    Đánh giá ngay
+                                </button>
+                            )
                         )}
                     </div>
-                    <p className="text-base font-bold text-primary">
-                        {formatPrice(booking.total_price)}
-                    </p>
                 </div>
             </div>
         </div>
@@ -205,20 +224,30 @@ export default function BookingHistory() {
     const [hostBookings, setHostBookings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [reviewModalOpen, setReviewModalOpen] = useState(false);
+    const [selectedBookingForReview, setSelectedBookingForReview] = useState(null);
+    const [reviewForm, setReviewForm] = useState({ rating: 0, comment: '' });
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     useEffect(() => {
-        const stored = localStorage.getItem('currentUser');
-        if (!stored) {
-            navigate('/');
-            return;
-        }
-        const parsedUser = JSON.parse(stored);
-        setUser(parsedUser);
+        const checkAuth = () => {
+            const stored = localStorage.getItem('currentUser');
+            if (!stored) {
+                navigate('/');
+                return;
+            }
+            const parsedUser = JSON.parse(stored);
+            setUser(parsedUser);
 
-        // Nếu là host thì mặc định tab host
-        if (parsedUser.role === 'host') {
-            setActiveTab('host');
-        }
+            // Nếu là host thì mặc định tab host
+            if (parsedUser.role === 'host') {
+                setActiveTab('host');
+            }
+        };
+
+        checkAuth();
+        window.addEventListener('userUpdated', checkAuth);
+        return () => window.removeEventListener('userUpdated', checkAuth);
     }, [navigate]);
 
     // Socket.IO connection ref
@@ -279,11 +308,56 @@ export default function BookingHistory() {
         });
 
         return () => {
-            if (socket) {
-                socket.disconnect();
+            if (socketRef.current) {
+                socketRef.current.disconnect();
             }
         };
     }, [user, activeTab]);
+
+    const handleOpenReviewModal = (booking) => {
+        setSelectedBookingForReview(booking);
+        setReviewForm({ rating: 0, comment: '' });
+        setReviewModalOpen(true);
+    };
+
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+        if (reviewForm.rating === 0) {
+            alert('Vui lòng chọn số sao đánh giá');
+            return;
+        }
+
+        setIsSubmittingReview(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/reviews', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    property_id: selectedBookingForReview.property_id,
+                    booking_id: selectedBookingForReview.id,
+                    rating: reviewForm.rating,
+                    comment: reviewForm.comment
+                })
+            });
+            
+            if (res.ok) {
+                alert('Đánh giá thành công! Cảm ơn bạn đã phản hồi.');
+                setReviewModalOpen(false);
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Lỗi khi gửi đánh giá');
+            }
+        } catch (error) {
+            console.error('Submit review error:', error);
+            alert('Lỗi kết nối, vui lòng thử lại sau');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
 
     if (!user) return null;
 
@@ -364,7 +438,7 @@ export default function BookingHistory() {
                         <p className="text-sm text-neutral-400">{currentList.length} kết quả</p>
                         {currentList.map((booking) =>
                             activeTab === 'user' ? (
-                                <UserBookingCard key={booking.id} booking={booking} />
+                                <UserBookingCard key={booking.id} booking={booking} onReviewClick={handleOpenReviewModal} />
                             ) : (
                                 <HostBookingCard key={booking.id} booking={booking} />
                             )
@@ -372,6 +446,80 @@ export default function BookingHistory() {
                     </div>
                 )}
             </main>
+
+            {/* Review Modal */}
+            {reviewModalOpen && selectedBookingForReview && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+                            <h3 className="text-lg font-bold text-charcoal">Đánh giá trải nghiệm</h3>
+                            <button
+                                onClick={() => setReviewModalOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 text-neutral-500 transition-colors"
+                            >
+                                <span className="material-symbols-outlined !text-xl">close</span>
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleSubmitReview} className="p-6 flex flex-col gap-5">
+                            <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100 flex gap-4">
+                                <div className="w-16 h-16 rounded-lg bg-neutral-200 overflow-hidden flex-shrink-0">
+                                    {selectedBookingForReview.property_image ? (
+                                        <img src={selectedBookingForReview.property_image} alt="Chỗ ở" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                                            <span className="material-symbols-outlined">image</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="overflow-hidden">
+                                    <p className="font-bold text-charcoal truncate">{selectedBookingForReview.property_name}</p>
+                                    <p className="text-xs text-neutral-500 mt-1">Phòng: {selectedBookingForReview.room_type_name}</p>
+                                    <p className="text-xs text-neutral-500">Từ {formatDate(selectedBookingForReview.check_in)} đến {formatDate(selectedBookingForReview.check_out)}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-charcoal mb-2 text-center">Bạn đánh giá chỗ ở này mấy sao?</label>
+                                <div className="flex items-center justify-center gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                                            className="p-1 transition-transform hover:scale-110"
+                                        >
+                                            <span className="material-symbols-outlined !text-4xl" style={{
+                                                color: star <= reviewForm.rating ? '#f59e0b' : '#e5e7eb',
+                                                fontVariationSettings: `'FILL' ${star <= reviewForm.rating ? 1 : 0}`
+                                            }}>star</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-charcoal mb-2">Chia sẻ thêm về trải nghiệm của bạn (không bắt buộc)</label>
+                                <textarea
+                                    value={reviewForm.comment}
+                                    onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                                    rows="4"
+                                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none"
+                                    placeholder="Chỗ ở có sạch sẽ không? Chủ nhà có nhiệt tình không?..."
+                                ></textarea>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isSubmittingReview || reviewForm.rating === 0}
+                                className="w-full py-3.5 rounded-xl bg-primary text-white font-bold disabled:bg-neutral-300 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                            >
+                                {isSubmittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -55,6 +55,22 @@ async function exportDB() {
         database: process.env.DB_NAME
     });
 
+    // 1. Lấy danh sách tất cả các bảng thực tế đang có trong DB
+    const [tables] = await connection.query('SHOW TABLES');
+    const allTablesInDB = tables.map(t => Object.values(t)[0]);
+    
+    // 2. Xây dựng danh sách export cuối cùng
+    // Ưu tiên thứ tự trong TABLE_ORDER, sau đó là các bảng mới phát hiện
+    const finalTableList = [
+        ...TABLE_ORDER.filter(t => allTablesInDB.includes(t)),
+        ...allTablesInDB.filter(t => !TABLE_ORDER.includes(t))
+    ];
+
+    const newTables = allTablesInDB.filter(t => !TABLE_ORDER.includes(t));
+    if (newTables.length > 0) {
+        console.log(`✨ Phát hiện ${newTables.length} bảng mới: ${newTables.join(', ')}`);
+    }
+
     let dumpSQL = '';
 
     // Header
@@ -68,9 +84,8 @@ async function exportDB() {
     dumpSQL += 'SET FOREIGN_KEY_CHECKS = 0;\n\n';
 
     let exportedCount = 0;
-    let skippedTables = [];
 
-    for (const tableName of TABLE_ORDER) {
+    for (const tableName of finalTableList) {
         try {
             console.log(`📦 Đang export bảng: ${tableName}...`);
 
@@ -102,9 +117,15 @@ async function exportDB() {
                         const vals = columns.map(col => {
                             const val = row[col];
                             if (val === null || val === undefined) return 'NULL';
-                            if (val instanceof Date) return `'${val.toISOString().slice(0, 19).replace('T', ' ')}'`;
+                            if (val instanceof Date) {
+                                // Xử lý timezone và format YYYY-MM-DD HH:mm:ss
+                                const d = val;
+                                return `'${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}'`;
+                            }
                             if (typeof val === 'boolean') return val ? '1' : '0';
                             if (typeof val === 'number') return val.toString();
+                            if (Buffer.isBuffer(val)) return `X'${val.toString('hex')}'`;
+                            
                             // Escape chuỗi
                             const escaped = String(val)
                                 .replace(/\\/g, '\\\\')
@@ -124,9 +145,7 @@ async function exportDB() {
 
             exportedCount++;
         } catch (err) {
-            // Bảng chưa tồn tại trong DB → bỏ qua
-            console.log(`   ⚠️  Bỏ qua bảng ${tableName} (chưa tồn tại trong DB)`);
-            skippedTables.push(tableName);
+            console.error(`   ❌ Lỗi khi export bảng ${tableName}:`, err.message);
         }
     }
 
@@ -143,9 +162,9 @@ async function exportDB() {
     console.log('\n=========================================');
     console.log('🎉 EXPORT THÀNH CÔNG!');
     console.log(`📁 File: server/${outputFile} (${fileSizeKB} KB)`);
-    console.log(`📊 Đã export: ${exportedCount}/${TABLE_ORDER.length} bảng`);
-    if (skippedTables.length > 0) {
-        console.log(`⚠️  Bỏ qua ${skippedTables.length} bảng chưa tồn tại: ${skippedTables.join(', ')}`);
+    console.log(`📊 Đã export: ${exportedCount}/${allTablesInDB.length} bảng`);
+    if (newTables.length > 0) {
+        console.log(`✨ Đã bao gồm ${newTables.length} bảng mới phát hiện.`);
     }
     console.log('=========================================');
     console.log('');
@@ -164,3 +183,4 @@ exportDB().catch(err => {
     console.error('❌ Lỗi khi export:', err.message);
     process.exit(1);
 });
+

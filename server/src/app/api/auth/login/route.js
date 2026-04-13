@@ -34,7 +34,7 @@ export async function POST(req) {
             }
         };
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'your_jwt_secret_key_here', { expiresIn: '1d' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET || 'your_jwt_secret_key_here', { expiresIn: '30d' });
 
         return NextResponse.json({
             token,

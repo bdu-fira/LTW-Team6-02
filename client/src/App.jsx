@@ -9,6 +9,8 @@ import BookingHistory from './pages/BookingHistory';
 import Admin from './pages/Admin';
 import HostDashboard from './pages/HostDashboard';
 import ATM from './pages/ATM';
+import EmailClone from './pages/EmailClone';
+import SetupPassword from './pages/SetupPassword';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="/quan-ly" element={<Admin />} />
         <Route path="/host" element={<HostDashboard />} />
         <Route path="/atm" element={<ATM />} />
+        <Route path="/admin/email-clone" element={<EmailClone />} />
+        <Route path="/setup-password" element={<SetupPassword />} />
       </Routes>
     </Router>
   )
