@@ -2610,6 +2610,20 @@ INSERT INTO `sandbox_otp_logs` (`id`, `transaction_id`, `card_number`, `otp_code
 (1, 'TXN_1775545548227_BA4E4085', '9704123456789126', '745232', '1430000', 'USED', '2026-04-07 14:05:48'),
 (2, 'TXN_1776044958036_D300DF94', '9704 0000 0000 0034', '472046', '1144000', 'USED', '2026-04-13 08:49:18');
 
+-- ---------------------------------------------------
+-- Bảng: system_emails
+-- ---------------------------------------------------
+DROP TABLE IF EXISTS `system_emails`;
+CREATE TABLE `system_emails` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `recipient_email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `subject` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `content` text COLLATE utf8mb4_general_ci NOT NULL,
+  `is_read` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ✅ Import hoàn tất!
