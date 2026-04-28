@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 
@@ -14,8 +14,17 @@ export default function Profile() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [activeTab, setActiveTab] = useState('info');
+    const [mounted, setMounted] = useState(false);
 
-    const activeSection = location.hash === '#favorites' ? 'favorites' : 'info';
+    useEffect(() => {
+        if (location.hash === '#favorites') setActiveTab('favorites');
+        else setActiveTab('info');
+    }, [location.hash]);
+
+    useEffect(() => {
+        setTimeout(() => setMounted(true), 50);
+    }, []);
 
     useEffect(() => {
         // Lấy thông tin user từ local storage
@@ -90,6 +99,9 @@ export default function Profile() {
 
                 // Kích phát sự kiện cho component Header tự động reload
                 window.dispatchEvent(new Event('userUpdated'));
+                
+                // Auto hide success message after 3s
+                setTimeout(() => setMessage(''), 3000);
             } else {
                 setError(data.message || 'Có lỗi xảy ra, vui lòng thử lại.');
             }
@@ -142,181 +154,402 @@ export default function Profile() {
         }
     };
 
+    const removeFavorite = (id) => {
+        const updated = favoriteProperties.filter(f => f.id !== id);
+        setFavoriteProperties(updated);
+        localStorage.setItem('favoriteProperties', JSON.stringify(updated));
+        window.dispatchEvent(new Event('favoritesUpdated'));
+    };
+
     if (!user) return null; // đang check chuyển trang
 
+    const sidebarItems = [
+        { key: 'info', icon: 'person', label: 'Thông tin cá nhân' },
+        { key: 'favorites', icon: 'favorite', label: 'Phòng yêu thích', count: favoriteProperties.length },
+    ];
+
+    const getInitials = (name) => {
+        if (!name) return '?';
+        return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50 font-outfit">
+        <div className="min-h-screen bg-cream font-body">
             <Header />
 
-            <main className="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8 mt-20">
-                <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
-                    <div className="bg-primary/5 px-6 py-8 border-b border-neutral-100 text-center">
-                        <div className="inline-block relative group cursor-pointer">
-                            <label htmlFor="avatar-upload" className="cursor-pointer block">
-                                <img
-                                    src={avatarBase64 || user.avatar}
-                                    alt="Avatar"
-                                    className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto object-cover group-hover:opacity-75 transition-opacity duration-300"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                                    <span className="text-white text-xs font-medium bg-black/50 px-2 py-1 rounded-md">Thay đổi</span>
+            {/* Hero Cover Banner */}
+            <div className="relative h-56 sm:h-64 mt-16 overflow-hidden">
+                <div 
+                    className="absolute inset-0"
+                    style={{
+                        background: 'linear-gradient(135deg, #1a3a3a 0%, #2d5a5a 40%, #3a6b6b 60%, #1a3a3a 100%)',
+                    }}
+                />
+                {/* Decorative elements */}
+                <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-6 left-1/4 w-64 h-64 rounded-full border border-white/30" />
+                    <div className="absolute -bottom-10 right-1/4 w-48 h-48 rounded-full border border-white/20" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full border border-white/10" />
+                </div>
+                {/* Subtle pattern overlay */}
+                <div className="absolute inset-0" style={{
+                    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)',
+                    backgroundSize: '32px 32px'
+                }} />
+                {/* Gold accent line */}
+                <div className="absolute bottom-0 left-0 right-0 h-1" style={{
+                    background: 'linear-gradient(90deg, transparent, #c9a962, #e8d5a3, #c9a962, transparent)'
+                }} />
+            </div>
+
+            {/* Main Content Area */}
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 pb-16 relative z-10">
+                <div className="flex flex-col lg:flex-row gap-6">
+                    
+                    {/* Left Sidebar - Profile Card */}
+                    <div 
+                        className="w-full lg:w-80 shrink-0"
+                        style={{
+                            opacity: mounted ? 1 : 0,
+                            transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                            transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                    >
+                        <div className="bg-white rounded-2xl shadow-elegant border border-light-border overflow-hidden">
+                            {/* Avatar Section */}
+                            <div className="pt-6 pb-5 px-6 text-center">
+                                <div className="inline-block relative group cursor-pointer">
+                                    <label htmlFor="avatar-upload" className="cursor-pointer block">
+                                        {/* Ring decoration */}
+                                        <div className="relative inline-block">
+                                            <div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-accent to-accent-light opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+                                            <div className="relative">
+                                                {(avatarBase64 || user.avatar) ? (
+                                                    <img
+                                                        src={avatarBase64 || user.avatar}
+                                                        alt="Avatar"
+                                                        className="w-28 h-28 rounded-full border-4 border-white shadow-lg object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    />
+                                                ) : (
+                                                    <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg bg-primary flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                                                        <span className="text-white text-2xl font-display font-bold">{getInitials(user.name)}</span>
+                                                    </div>
+                                                )}
+                                                {/* Hover overlay */}
+                                                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+                                                    <div className="text-center">
+                                                        <span className="material-symbols-outlined text-white !text-2xl" style={{ fontVariationSettings: "'FILL' 0" }}>photo_camera</span>
+                                                        <p className="text-white text-[10px] font-medium mt-0.5">Thay ảnh</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <input
+                                        type="file"
+                                        id="avatar-upload"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                    />
                                 </div>
-                            </label>
-                            <input
-                                type="file"
-                                id="avatar-upload"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                            />
-                        </div>
-                        <h2 className="mt-4 text-2xl font-bold text-charcoal">{user.name}</h2>
-                        <p className="text-neutral-500">{user.email}</p>
-                        <span className="inline-block mt-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold uppercase tracking-wider">
-                            {user.role}
-                        </span>
-                        <div className="mt-4">
-                            <Link
-                                to="/bookings"
-                                className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-neutral-200 text-charcoal rounded-xl text-sm font-medium hover:border-primary hover:text-primary transition-colors shadow-sm"
-                            >
-                                <span className="material-symbols-outlined !text-base">calendar_month</span>
-                                Lịch sử đặt phòng
-                            </Link>
+                                <h2 className="mt-4 text-xl font-display font-bold text-charcoal">{user.name}</h2>
+                                <p className="text-warm-gray text-sm mt-1">{user.email}</p>
+                                <span className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-semibold uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                    {user.role}
+                                </span>
+                            </div>
+
+                            {/* Divider with accent */}
+                            <div className="mx-6 h-px bg-gradient-to-r from-transparent via-light-border to-transparent" />
+
+                            {/* Navigation Menu */}
+                            <nav className="p-3">
+                                {sidebarItems.map((item) => (
+                                    <button
+                                        key={item.key}
+                                        onClick={() => {
+                                            setActiveTab(item.key);
+                                            navigate(item.key === 'info' ? '/profile' : `/profile#${item.key}`);
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer ${
+                                            activeTab === item.key
+                                                ? 'bg-primary/5 text-primary shadow-inner-soft'
+                                                : 'text-warm-gray hover:bg-cream hover:text-charcoal'
+                                        }`}
+                                    >
+                                        <span 
+                                            className={`material-symbols-outlined !text-xl transition-colors ${activeTab === item.key ? 'text-primary' : ''}`}
+                                            style={activeTab === item.key ? { fontVariationSettings: "'FILL' 1" } : {}}
+                                        >
+                                            {item.icon}
+                                        </span>
+                                        <span className="flex-1 text-left">{item.label}</span>
+                                        {item.count !== undefined && (
+                                            <span className={`min-w-[22px] h-[22px] flex items-center justify-center rounded-full text-[11px] font-bold ${
+                                                activeTab === item.key 
+                                                    ? 'bg-primary text-white' 
+                                                    : 'bg-neutral-100 text-warm-gray'
+                                            }`}>
+                                                {item.count}
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
+
+                                {/* Divider */}
+                                <div className="mx-3 my-2 h-px bg-light-border" />
+
+                                {/* Quick Actions */}
+                                <Link
+                                    to="/bookings"
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-warm-gray hover:bg-cream hover:text-charcoal transition-all duration-300"
+                                >
+                                    <span className="material-symbols-outlined !text-xl">calendar_month</span>
+                                    <span className="flex-1 text-left">Lịch sử đặt phòng</span>
+                                    <span className="material-symbols-outlined !text-base text-neutral-300">chevron_right</span>
+                                </Link>
+                            </nav>
                         </div>
                     </div>
 
-                    <div className="p-6 sm:p-10">
-                        {activeSection === 'info' ? (
-                            <>
-                                <h3 className="text-xl font-semibold text-charcoal mb-6">Thông tin cá nhân</h3>
-
-                                {message && (
-                                    <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-xl text-sm border border-green-200">
-                                        {message}
-                                    </div>
-                                )}
-
-                                {error && (
-                                    <div className="mb-6 p-4 bg-red-50 text-red-500 rounded-xl text-sm border border-red-200">
-                                        {error}
-                                    </div>
-                                )}
-
-                                <form onSubmit={handleUpdate} className="space-y-6">
-                                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                        <div>
-                                            <label className="block text-sm font-medium text-charcoal mb-2">
-                                                Họ và tên
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={name}
-                                                onChange={(e) => setName(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                                                placeholder="Nhập họ và tên..."
-                                                required
-                                            />
+                    {/* Right Content Area */}
+                    <div 
+                        className="flex-1 min-w-0"
+                        style={{
+                            opacity: mounted ? 1 : 0,
+                            transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                            transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s',
+                        }}
+                    >
+                        {activeTab === 'info' ? (
+                            <div className="bg-white rounded-2xl shadow-elegant border border-light-border overflow-hidden">
+                                {/* Section Header */}
+                                <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-5 border-b border-light-border">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-primary !text-xl">edit_note</span>
                                         </div>
-
                                         <div>
-                                            <label className="block text-sm font-medium text-charcoal mb-2">
-                                                Số điện thoại
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                value={phone}
-                                                onChange={(e) => setPhone(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                                                placeholder="Nhập số điện thoại..."
-                                            />
+                                            <h3 className="text-lg font-display font-bold text-charcoal">Thông tin cá nhân</h3>
+                                            <p className="text-sm text-warm-gray mt-0.5">Cập nhật thông tin tài khoản của bạn</p>
                                         </div>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-charcoal mb-2">
-                                            Địa chỉ Email (Không thể thay đổi)
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={user.email}
-                                            disabled
-                                            className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-500 cursor-not-allowed text-sm"
-                                        />
-                                    </div>
-
-                                    <div className="flex items-center justify-end pt-4 border-t border-neutral-100">
-                                        <button
-                                            type="submit"
-                                            disabled={loading}
-                                            className={`px-8 py-3 bg-primary text-white rounded-xl font-medium transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                </div>
+                                
+                                <div className="p-6 sm:p-8">
+                                    {/* Toast Messages */}
+                                    {message && (
+                                        <div 
+                                            className="mb-6 p-4 bg-emerald-50 rounded-xl text-sm border border-emerald-200 flex items-center gap-3"
+                                            style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                                         >
-                                            {loading ? 'Đang cập nhật...' : 'Lưu thay đổi'}
-                                        </button>
-                                    </div>
-                                </form>
-                            </>
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined text-emerald-600 !text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                            </div>
+                                            <span className="text-emerald-700 font-medium">{message}</span>
+                                        </div>
+                                    )}
+
+                                    {error && (
+                                        <div 
+                                            className="mb-6 p-4 bg-red-50 rounded-xl text-sm border border-red-200 flex items-center gap-3"
+                                            style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                                <span className="material-symbols-outlined text-red-500 !text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
+                                            </div>
+                                            <span className="text-red-600 font-medium">{error}</span>
+                                        </div>
+                                    )}
+
+                                    <form onSubmit={handleUpdate} className="space-y-6">
+                                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                                            {/* Name Field */}
+                                            <div className="group">
+                                                <label className="block text-sm font-semibold text-charcoal mb-2 flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined !text-base text-warm-gray">badge</span>
+                                                    Họ và tên
+                                                </label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={name}
+                                                        onChange={(e) => setName(e.target.value)}
+                                                        className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 bg-cream/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all text-sm text-charcoal placeholder:text-neutral-400"
+                                                        placeholder="Nhập họ và tên..."
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Phone Field */}
+                                            <div className="group">
+                                                <label className="block text-sm font-semibold text-charcoal mb-2 flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined !text-base text-warm-gray">call</span>
+                                                    Số điện thoại
+                                                </label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="tel"
+                                                        value={phone}
+                                                        onChange={(e) => setPhone(e.target.value)}
+                                                        className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 bg-cream/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all text-sm text-charcoal placeholder:text-neutral-400"
+                                                        placeholder="Nhập số điện thoại..."
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Email Field */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-charcoal mb-2 flex items-center gap-1.5">
+                                                <span className="material-symbols-outlined !text-base text-warm-gray">mail</span>
+                                                Địa chỉ Email
+                                                <span className="ml-1 text-[10px] font-medium text-warm-gray bg-neutral-100 px-2 py-0.5 rounded-full">Không thể thay đổi</span>
+                                            </label>
+                                            <input
+                                                type="email"
+                                                value={user.email}
+                                                disabled
+                                                className="w-full px-4 py-3.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-400 cursor-not-allowed text-sm"
+                                            />
+                                        </div>
+
+                                        {/* Submit Area */}
+                                        <div className="flex items-center justify-between pt-5 border-t border-light-border">
+                                            <p className="text-xs text-warm-gray hidden sm:block">
+                                                <span className="material-symbols-outlined !text-sm align-middle mr-1">info</span>
+                                                Thông tin sẽ được cập nhật ngay lập tức
+                                            </p>
+                                            <button
+                                                type="submit"
+                                                disabled={loading}
+                                                className={`group relative px-8 py-3.5 bg-primary text-white rounded-xl font-semibold transition-all duration-300 hover:bg-primary-light hover:shadow-elegant focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer overflow-hidden ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                            >
+                                                {/* Shimmer effect */}
+                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                                                <span className="relative flex items-center gap-2">
+                                                    {loading ? (
+                                                        <>
+                                                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                            </svg>
+                                                            Đang cập nhật...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="material-symbols-outlined !text-lg">save</span>
+                                                            Lưu thay đổi
+                                                        </>
+                                                    )}
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         ) : (
-                            <>
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-semibold text-charcoal">Phòng yêu thích</h3>
-                                    <span className="text-sm text-neutral-400">
-                                        {favoriteProperties.length} mục
-                                    </span>
+                            <div className="bg-white rounded-2xl shadow-elegant border border-light-border overflow-hidden">
+                                {/* Section Header */}
+                                <div className="px-6 sm:px-8 pt-6 sm:pt-8 pb-5 border-b border-light-border">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-red-400 !text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-display font-bold text-charcoal">Phòng yêu thích</h3>
+                                                <p className="text-sm text-warm-gray mt-0.5">Danh sách những nơi bạn đã lưu</p>
+                                            </div>
+                                        </div>
+                                        <span className="px-3 py-1.5 rounded-full bg-neutral-100 text-warm-gray text-xs font-semibold">
+                                            {favoriteProperties.length} mục
+                                        </span>
+                                    </div>
                                 </div>
 
-                                {favoriteProperties.length === 0 ? (
-                                    <div className="border border-dashed border-neutral-200 rounded-2xl p-8 text-center text-neutral-400">
-                                        <span className="material-symbols-outlined !text-5xl mb-3">favorite</span>
-                                        <p className="text-sm">Bạn chưa lưu phòng nào.</p>
-                                        <Link
-                                            to="/"
-                                            className="inline-flex mt-4 items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
-                                        >
-                                            Khám phá chỗ ở
-                                        </Link>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {favoriteProperties.map((fav) => (
+                                <div className="p-6 sm:p-8">
+                                    {favoriteProperties.length === 0 ? (
+                                        <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-12 text-center">
+                                            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+                                                <span className="material-symbols-outlined !text-4xl text-red-300" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                                            </div>
+                                            <h4 className="text-charcoal font-display font-semibold text-lg">Chưa có phòng yêu thích</h4>
+                                            <p className="text-warm-gray text-sm mt-2 max-w-sm mx-auto">Khám phá và lưu lại những chỗ ở tuyệt vời để dễ dàng tìm lại sau</p>
                                             <Link
-                                                key={fav.id}
-                                                to={`/details/${fav.id}`}
-                                                className="group bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                                                to="/"
+                                                className="inline-flex mt-6 items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-light transition-all duration-300 hover:shadow-elegant btn-premium"
                                             >
-                                                <div className="relative h-40 bg-neutral-100">
-                                                    {fav.image ? (
-                                                        <img
-                                                            src={fav.image}
-                                                            alt={fav.name}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-neutral-300">
-                                                            <span className="material-symbols-outlined !text-5xl">home</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="p-4">
-                                                    <h4 className="font-semibold text-charcoal group-hover:text-primary transition-colors">
-                                                        {fav.name}
-                                                    </h4>
-                                                    <p className="text-sm text-neutral-500 mt-1">{fav.location}</p>
-                                                    <div className="flex items-center justify-between mt-3">
-                                                        <p className="text-primary font-semibold text-sm">{fav.price}</p>
-                                                        <div className="flex items-center gap-1 text-sm text-neutral-500">
-                                                            <span className="material-symbols-outlined text-accent text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                                                star
-                                                            </span>
-                                                            <span>{fav.rating}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <span className="material-symbols-outlined !text-lg">explore</span>
+                                                Khám phá chỗ ở
                                             </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            {favoriteProperties.map((fav, index) => (
+                                                <div
+                                                    key={fav.id}
+                                                    className="group relative bg-white border border-light-border rounded-2xl overflow-hidden hover:shadow-elegant-lg transition-all duration-500"
+                                                    style={{
+                                                        animation: `fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.08}s both`,
+                                                    }}
+                                                >
+                                                    {/* Remove button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            removeFavorite(fav.id);
+                                                        }}
+                                                        className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-red-50 hover:scale-110 cursor-pointer"
+                                                        title="Bỏ yêu thích"
+                                                    >
+                                                        <span className="material-symbols-outlined text-red-400 !text-base" style={{ fontVariationSettings: "'FILL' 1" }}>close</span>
+                                                    </button>
+
+                                                    <Link to={`/details/${fav.id}`} className="block">
+                                                        <div className="relative h-44 bg-neutral-100 overflow-hidden">
+                                                            {fav.image ? (
+                                                                <img
+                                                                    src={fav.image}
+                                                                    alt={fav.name}
+                                                                    className="w-full h-full object-cover image-zoom"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-cream">
+                                                                    <span className="material-symbols-outlined !text-5xl text-neutral-300">home</span>
+                                                                </div>
+                                                            )}
+                                                            {/* Gradient overlay */}
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                        </div>
+                                                        <div className="p-4">
+                                                            <h4 className="font-display font-semibold text-charcoal group-hover:text-primary transition-colors duration-300 line-clamp-1">
+                                                                {fav.name}
+                                                            </h4>
+                                                            <div className="flex items-center gap-1 mt-1.5 text-warm-gray">
+                                                                <span className="material-symbols-outlined !text-sm">location_on</span>
+                                                                <p className="text-sm line-clamp-1">{fav.location}</p>
+                                                            </div>
+                                                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-light-border">
+                                                                <p className="text-primary font-bold text-sm">{fav.price}</p>
+                                                                <div className="flex items-center gap-1 text-sm">
+                                                                    <span className="material-symbols-outlined text-accent !text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                                                        star
+                                                                    </span>
+                                                                    <span className="font-semibold text-charcoal">{fav.rating}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
