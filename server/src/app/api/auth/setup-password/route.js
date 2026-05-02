@@ -43,6 +43,9 @@ export async function POST(req) {
         const hashedPassword = await bcrypt.hash(new_password, 10);
         await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 
+        // Xóa token khỏi DB để ngăn việc sử dụng lại link
+        await db.execute('DELETE FROM magic_links WHERE token = ?', [token]);
+
         // Tạo token đăng nhập luôn cho user
         const loginToken = jwt.sign(
             { user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, role: user.role } },

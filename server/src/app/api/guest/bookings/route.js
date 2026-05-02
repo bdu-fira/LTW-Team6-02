@@ -165,18 +165,18 @@ export async function POST(req) {
                             </div>
                             <div style="padding: 40px 30px;">
                                 <h2 style="color: #1e293b; font-size: 20px; margin-top: 0; margin-bottom: 20px;">Xác nhận đặt phòng thành công!</h2>
-                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Chào <strong>\${guest_name}</strong>,</p>
-                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">Cảm ơn bạn đã lựa chọn Aoklevart. Đơn đặt phòng <strong>#\${bookingId}</strong> của bạn đã được hệ thống ghi nhận thành công.</p>
+                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Chào <strong>${guest_name}</strong>,</p>
+                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">Cảm ơn bạn đã lựa chọn Aoklevart. Đơn đặt phòng <strong>#${bookingId}</strong> của bạn đã được hệ thống ghi nhận thành công.</p>
                                 
                                 <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; border-radius: 4px; margin-bottom: 30px;">
-                                    <p style="margin: 0 0 10px 0; color: #334155; font-size: 15px;"><strong>Tổng thanh toán:</strong> <span style="color: #0ea5e9; font-size: 18px; font-weight: bold;">\${formattedPrice}</span></p>
-                                    <p style="margin: 0; color: #64748b; font-size: 14px;">Thời gian: Nhận phòng \${check_in} - Trả phòng \${check_out}</p>
+                                    <p style="margin: 0 0 10px 0; color: #334155; font-size: 15px;"><strong>Tổng thanh toán:</strong> <span style="color: #0ea5e9; font-size: 18px; font-weight: bold;">${formattedPrice}</span></p>
+                                    <p style="margin: 0; color: #64748b; font-size: 14px;">Thời gian: Nhận phòng ${check_in} - Trả phòng ${check_out}</p>
                                 </div>
 
                                 <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">Để theo dõi chi tiết chuyến đi và thiết lập mật khẩu bảo vệ tài khoản, vui lòng truy cập thông qua liên kết bảo mật dưới đây:</p>
                                 
                                 <div style="text-align: center; margin: 35px 0;">
-                                    <a href="\${magicLink}" style="background-color: #0f172a; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2);">Đăng nhập & Thiết lập mật khẩu</a>
+                                    <a href="${magicLink}" style="background-color: #0f172a; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2);">Đăng nhập & Thiết lập mật khẩu</a>
                                 </div>
                                 
                                 <p style="color: #94a3b8; font-size: 14px; text-align: center; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">

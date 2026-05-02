@@ -45,6 +45,9 @@ export async function POST(req) {
             { expiresIn: '30d' }
         );
 
+        // 4. Delete the token from DB to prevent reuse
+        await db.execute('DELETE FROM magic_links WHERE token = ?', [token]);
+
         return NextResponse.json({
             success: true,
             token: authToken,
