@@ -15,6 +15,16 @@ export default function Header() {
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
 
+    // OTP Login states
+    const [loginMode, setLoginMode] = useState('identifier'); // 'identifier' | 'otp' | 'password'
+    const [otpIdentifier, setOtpIdentifier] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpError, setOtpError] = useState('');
+    const [otpTimer, setOtpTimer] = useState(60);
+    const [otpCanResend, setOtpCanResend] = useState(false);
+
     const [regFirstName, setRegFirstName] = useState('');
     const [regLastName, setRegLastName] = useState('');
     const [regEmail, setRegEmail] = useState('');
@@ -61,7 +71,12 @@ export default function Header() {
                     handleLogout();
                     return;
                 }
-                setCurrentUser(JSON.parse(storedUser));
+                try {
+                    setCurrentUser(JSON.parse(storedUser));
+                } catch (e) {
+                    console.error('Error parsing user data:', e);
+                    handleLogout();
+                }
             } else {
                 setCurrentUser(null);
             }
@@ -110,37 +125,112 @@ export default function Header() {
         }
     }, [forgotStep, forgotCountdown]);
 
+    // OTP Timer effect
+    React.useEffect(() => {
+        let interval;
+        if (otpSent && otpTimer > 0) {
+            interval = setInterval(() => setOtpTimer(t => t - 1), 1000);
+        } else if (otpTimer === 0) {
+            setOtpCanResend(true);
+        }
+        return () => clearInterval(interval);
+    }, [otpSent, otpTimer]);
+
+    const resetOtpLogin = () => {
+        setOtpIdentifier('');
+        setOtpSent(false);
+        setOtpCode(['', '', '', '', '', '']);
+        setOtpError('');
+        setOtpTimer(60);
+        setOtpCanResend(false);
+        setLoginMode('identifier');
+        setLoginPassword('');
+    };
+
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        if (!otpIdentifier.trim()) { setOtpError('Vui lòng nhập số điện thoại hoặc email'); return; }
+        setOtpLoading(true); setOtpError('');
+        try {
+            const res = await fetch('/api/auth/send-login-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: otpIdentifier.trim() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setOtpSent(true); setOtpTimer(60); setOtpCanResend(false);
+                setLoginMode('otp'); // Chuyển sang bước OTP
+            } else {
+                setOtpError(data.message);
+            }
+        } catch { setOtpError('Lỗi kết nối máy chủ'); }
+        finally { setOtpLoading(false); }
+    };
+
+    const handleOtpChange = (index, value) => {
+        if (!/^\d*$/.test(value)) return;
+        const newOtp = [...otpCode];
+        newOtp[index] = value.slice(-1);
+        setOtpCode(newOtp);
+        if (value && index < 5) document.getElementById(`login-otp-${index + 1}`)?.focus();
+    };
+
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otpCode[index] && index > 0)
+            document.getElementById(`login-otp-${index - 1}`)?.focus();
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        const code = otpCode.join('');
+        if (code.length < 6) { setOtpError('Vui lòng nhập đủ 6 chữ số'); return; }
+        setOtpLoading(true); setOtpError('');
+        try {
+            const res = await fetch('/api/auth/otp-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier: otpIdentifier.trim(), otp: code })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const user = data.user;
+                setCurrentUser(user);
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('lastActivity', Date.now().toString());
+                window.dispatchEvent(new Event('userUpdated'));
+                setIsLoginOpen(false);
+                resetOtpLogin();
+            } else {
+                setOtpError(data.message);
+            }
+        } catch { setOtpError('Lỗi kết nối máy chủ'); }
+        finally { setOtpLoading(false); }
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoginError('');
-
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email: loginEmail, password: loginPassword })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: otpIdentifier, password: loginPassword })
             });
-
             const data = await response.json();
-
             if (response.ok) {
-                // Save to local storage
                 setCurrentUser(data.user);
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
-                localStorage.setItem('token', data.token); // Store JWT token
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('lastActivity', Date.now().toString());
                 setIsLoginOpen(false);
                 window.dispatchEvent(new Event('userUpdated'));
-                setLoginEmail('');
                 setLoginPassword('');
             } else {
-                setLoginError(data.message || 'Email hoặc mật khẩu không chính xác.');
+                setLoginError(data.message || 'Tài khoản hoặc mật khẩu không chính xác.');
             }
-        } catch (error) {
-            console.error('Login error:', error);
-            setLoginError('Lỗi kết nối máy chủ');
-        }
+        } catch { setLoginError('Lỗi kết nối máy chủ'); }
     };
 
     const handleRegister = async (e) => {
@@ -190,6 +280,9 @@ export default function Header() {
         setIsLoginOpen(true);
         setIsRegisterOpen(false);
         setIsMobileMenuOpen(false);
+        setLoginMode('otp');
+        resetOtpLogin();
+        setLoginError('');
     };
 
     const openRegister = () => {
@@ -539,65 +632,164 @@ export default function Header() {
             {/* Login Modal */}
             {isLoginOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsLoginOpen(false)}></div>
-                    <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl animate-fade-in-up">
-                        <button onClick={() => setIsLoginOpen(false)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-neutral-100 transition-colors">
-                            <span className="material-symbols-outlined text-neutral-500">close</span>
-                        </button>
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setIsLoginOpen(false)}></div>
+                    <div className="relative w-full max-w-[860px] bg-white rounded-3xl shadow-2xl login-modal-enter overflow-hidden flex" style={{maxHeight:'92vh'}}>
 
-                        <div className={`p-8 ${loginPromptMessage ? 'pt-14' : ''}`}>
-                            {loginPromptMessage && (
-                                <div className="flex items-center gap-3 p-4 mb-6 bg-primary/5 border border-primary/20 rounded-xl">
-                                    <span className="material-symbols-outlined text-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                                    <p className="text-sm font-medium text-charcoal">{loginPromptMessage}</p>
+                        {/* Left brand panel - hidden on mobile */}
+                        <div className="hidden md:flex flex-col justify-between w-[340px] flex-shrink-0 login-brand-gradient text-white p-10 relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-[0.07]" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2.5 mb-10">
+                                    <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                                        <span className="text-white font-display font-bold text-sm">A</span>
+                                    </div>
+                                    <span className="font-display text-lg font-semibold tracking-tight">Aoklevart</span>
                                 </div>
-                            )}
-                            <div className="text-center mb-8">
-                                <h2 className="font-display text-2xl font-bold text-charcoal mb-2">Chào mừng trở lại</h2>
-                                <p className="text-warm-gray text-sm">Đăng nhập để tiếp tục trải nghiệm</p>
+                                <h3 className="text-[26px] font-bold leading-tight mb-4">Khám phá kỳ nghỉ<br/>hoàn hảo của bạn</h3>
+                                <p className="text-white/70 text-sm leading-relaxed">Hàng nghìn chỗ ở cao cấp đang chờ bạn. Đăng nhập để nhận ưu đãi độc quyền.</p>
                             </div>
-
-                            <form className="space-y-4" onSubmit={handleLogin}>
-                                {loginError && <p className="text-red-500 text-sm text-center">{loginError}</p>}
-                                <div>
-                                    <label className="block text-sm font-medium text-charcoal mb-1.5">Email</label>
-                                    <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required placeholder="name@example.com" className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:border-primary focus:ring-primary transition-colors bg-neutral-50" />
+                            <div className="relative z-10 flex items-center gap-3 pt-6 border-t border-white/15">
+                                <div className="flex -space-x-2">
+                                    <div className="w-7 h-7 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-[10px] font-bold">N</div>
+                                    <div className="w-7 h-7 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-[10px] font-bold">T</div>
+                                    <div className="w-7 h-7 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-[10px] font-bold">A</div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-charcoal mb-1.5">Mật khẩu</label>
-                                    <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:border-primary focus:ring-primary transition-colors bg-neutral-50" />
-                                </div>
+                                <p className="text-white/60 text-xs"><span className="text-white font-semibold">2,400+</span> khách hàng tin tưởng</p>
+                            </div>
+                        </div>
 
-                                <div className="flex items-center justify-between text-sm">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" className="rounded border-neutral-300 text-primary focus:ring-primary" />
-                                        <span className="text-warm-gray">Ghi nhớ đăng nhập</span>
-                                    </label>
-                                    <button type="button" onClick={openForgotPassword} className="text-primary font-medium hover:underline">Quên mật khẩu?</button>
-                                </div>
-
-                                <button type="submit" className="w-full py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-light transition-all shadow-lg shadow-primary/20">
-                                    Đăng nhập
+                        {/* Right form panel */}
+                        <div className="flex-1 flex flex-col overflow-y-auto">
+                            <div className="flex items-center justify-end p-5 pb-0">
+                                <button onClick={() => setIsLoginOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 transition-colors">
+                                    <span className="material-symbols-outlined text-neutral-400 !text-xl">close</span>
                                 </button>
-                            </form>
-
-                            <div className="mt-6 pt-6 border-t border-neutral-100">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button className="flex items-center justify-center gap-2 py-2.5 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">
-                                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
-                                        <span className="text-sm font-medium text-charcoal">Google</span>
-                                    </button>
-                                    <button className="flex items-center justify-center gap-2 py-2.5 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">
-                                        <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" className="w-5 h-5" alt="Facebook" />
-                                        <span className="text-sm font-medium text-charcoal">Facebook</span>
-                                    </button>
-                                </div>
                             </div>
 
-                            <p className="mt-8 text-center text-sm text-warm-gray">
-                                Chưa có tài khoản?{' '}
-                                <button onClick={openRegister} className="text-primary font-bold hover:underline">Đăng ký ngay</button>
-                            </p>
+                            <div className="px-8 py-6 flex-1">
+                                {loginPromptMessage && (
+                                    <div className="flex items-center gap-2 p-3 mb-4 bg-teal-50 border border-teal-100 rounded-xl">
+                                        <span className="material-symbols-outlined text-teal-600 !text-lg" style={{fontVariationSettings:"'FILL' 1"}}>info</span>
+                                        <p className="text-xs font-medium text-teal-700">{loginPromptMessage}</p>
+                                    </div>
+                                )}
+
+                                <h2 className="text-xl font-bold text-neutral-900 mb-1">
+                                    {loginMode === 'identifier' && 'Đăng nhập nhanh'}
+                                    {loginMode === 'otp' && 'Nhập mã xác thực'}
+                                    {loginMode === 'password' && 'Đăng nhập'}
+                                </h2>
+                                <p className="text-neutral-500 text-sm mb-6">
+                                    {loginMode === 'identifier' && 'Nhập SĐT hoặc email để tiếp tục'}
+                                    {loginMode === 'otp' && (<>Mã 6 chữ số đã gửi đến <strong className="text-neutral-800">{otpIdentifier}</strong></>)}
+                                    {loginMode === 'password' && (<>Nhập mật khẩu cho <strong className="text-neutral-800">{otpIdentifier}</strong></>)}
+                                </p>
+
+                                {/* Step 1: Identifier Input & Social Login */}
+                                {loginMode === 'identifier' && (
+                                    <>
+                                        <form onSubmit={handleSendOtp} className="space-y-4 mb-6">
+                                            {otpError && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-xl text-center font-medium">{otpError}</p>}
+                                            <div>
+                                                <div className="relative">
+                                                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 !text-lg">person</span>
+                                                    <input type="text" value={otpIdentifier} onChange={e => setOtpIdentifier(e.target.value)}
+                                                        placeholder="Email hoặc số điện thoại"
+                                                        className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-neutral-200 focus:border-primary focus:outline-none transition-all bg-white text-sm placeholder:text-neutral-400"
+                                                        autoFocus />
+                                                </div>
+                                            </div>
+                                            <button type="submit" disabled={otpLoading}
+                                                className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 text-sm">
+                                                {otpLoading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Đang xử lý...</> : <>Tiếp tục <span className="material-symbols-outlined !text-base">east</span></>}
+                                            </button>
+                                        </form>
+
+                                        <div className="flex items-center gap-4 mb-5">
+                                            <div className="flex-1 h-px bg-neutral-200"></div>
+                                            <span className="text-[11px] text-neutral-400 font-medium uppercase tracking-wider">hoặc</span>
+                                            <div className="flex-1 h-px bg-neutral-200"></div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 mb-5">
+                                            <button className="social-btn-pro">
+                                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-[18px] h-[18px]" alt="G" />Google
+                                            </button>
+                                            <button className="social-btn-pro">
+                                                <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" className="w-[18px] h-[18px]" alt="F" />Facebook
+                                            </button>
+                                        </div>
+
+                                        <p className="mt-5 text-center text-xs text-neutral-500">
+                                            Chưa có tài khoản? <button onClick={openRegister} className="text-primary font-bold hover:underline">Đăng ký miễn phí</button>
+                                        </p>
+                                    </>
+                                )}
+
+                                {/* Step 2: OTP Verification */}
+                                {loginMode === 'otp' && (
+                                    <form onSubmit={handleVerifyOtp} className="space-y-5">
+                                        {otpError && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-xl text-center font-medium">{otpError}</p>}
+                                        <div className="flex justify-center gap-2.5">
+                                            {otpCode.map((digit, idx) => (
+                                                <input key={idx} id={`login-otp-${idx}`} type="text" inputMode="numeric" maxLength={1} value={digit}
+                                                    onChange={e => handleOtpChange(idx, e.target.value)} onKeyDown={e => handleOtpKeyDown(idx, e)}
+                                                    className="otp-input-pro" autoFocus={idx === 0} />
+                                            ))}
+                                        </div>
+                                        <div className="flex items-center justify-between px-2">
+                                            <p className="text-xs text-neutral-500">
+                                                {otpCanResend
+                                                    ? <button type="button" onClick={handleSendOtp} className="text-primary font-semibold hover:underline">Gửi lại mã OTP</button>
+                                                    : <>Gửi lại sau <span className="font-bold text-neutral-800">{otpTimer}s</span></>}
+                                            </p>
+                                            <button type="button" onClick={() => { setLoginMode('password'); setLoginError(''); setOtpError(''); }} className="text-xs text-primary font-semibold hover:underline">Đăng nhập bằng mật khẩu</button>
+                                        </div>
+                                        <button type="submit" disabled={otpLoading}
+                                            className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 text-sm">
+                                            {otpLoading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Đang xác thực...</> : <>Xác nhận & Đăng nhập</>}
+                                        </button>
+                                        <div className="text-center mt-3">
+                                            <button type="button" onClick={() => setLoginMode('identifier')} className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline">
+                                                <span className="material-symbols-outlined !text-[14px] align-middle mr-1">arrow_back</span>Thay đổi SĐT / Email
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+
+                                {/* Step 2: Password Mode */}
+                                {loginMode === 'password' && (
+                                    <form className="space-y-5" onSubmit={handleLogin}>
+                                        {loginError && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-xl text-center font-medium">{loginError}</p>}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="text-[13px] font-semibold text-neutral-700">Mật khẩu</label>
+                                                <button type="button" onClick={openForgotPassword} className="text-xs text-primary font-medium hover:underline">Quên mật khẩu?</button>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 !text-lg">lock</span>
+                                                <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required placeholder="••••••••"
+                                                    className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-neutral-200 focus:border-primary focus:outline-none transition-all bg-white text-sm" autoFocus />
+                                            </div>
+                                        </div>
+                                        <button type="submit" className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all shadow-lg shadow-primary/20 text-sm">
+                                            Đăng nhập
+                                        </button>
+                                        <div className="flex items-center justify-between px-2 mt-4">
+                                            <button type="button" onClick={() => setLoginMode('identifier')} className="text-xs text-neutral-500 hover:text-neutral-800 hover:underline">
+                                                <span className="material-symbols-outlined !text-[14px] align-middle mr-1">arrow_back</span>Thay đổi tài khoản
+                                            </button>
+                                            <button type="button" onClick={() => { setLoginMode('otp'); setLoginError(''); setOtpError(''); }} className="text-xs text-primary font-semibold hover:underline">
+                                                Đăng nhập bằng mã OTP
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+
+                            <div className="px-8 py-3 border-t border-neutral-100 bg-neutral-50/60">
+                                <p className="text-[10px] text-neutral-400 text-center">Bằng việc tiếp tục, bạn đồng ý với <a href="#" className="underline hover:text-neutral-600">Điều khoản dịch vụ</a> & <a href="#" className="underline hover:text-neutral-600">Chính sách bảo mật</a></p>
+                            </div>
                         </div>
                     </div>
                 </div>

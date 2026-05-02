@@ -299,3 +299,40 @@
 .animate-scale-in {
   animation: scaleIn 0.3s ease-out forwards;
 }
+
+/* Login Modal Premium */
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.login-modal-enter {
+  animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.login-brand-gradient {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 40%, #134e4a 100%);
+}
+.otp-input-pro {
+  width: 44px; height: 52px;
+  text-align: center; font-size: 20px; font-weight: 700;
+  border: 2px solid #e5e7eb; border-radius: 12px;
+  background: #f9fafb; outline: none;
+  transition: all 0.2s ease;
+}
+.otp-input-pro:focus {
+  border-color: #0f766e; background: #fff;
+  box-shadow: 0 0 0 3px rgba(15,118,110,0.1);
+}
+.social-btn-pro {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 11px 16px; border: 1.5px solid #e5e7eb; border-radius: 12px;
+  font-size: 13px; font-weight: 600; color: #374151;
+  background: #fff; transition: all 0.2s ease; cursor: pointer;
+}
+.social-btn-pro:hover {
+  border-color: #d1d5db; background: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}

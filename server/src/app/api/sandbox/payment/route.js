@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import crypto from 'crypto';
+import { sendVirtualSMS } from '../../../../lib/sms';
 
 // Sinh mã OTP ngẫu nhiên 6 chữ số
 function generateOTP() {
@@ -87,6 +88,10 @@ async function handleInitiate({ card_number, card_holder, expiry_date, cvv, amou
     );
 
     console.log(`[Sandbox Payment] OTP đã được tạo: ${otpCode} cho giao dịch ${transactionId}`);
+
+    // Gửi SMS giả lập
+    const smsContent = `[Antigravity Travel] Ban dang thuc hien giao dich ${transactionId} so tien ${numAmount.toLocaleString()} VND. Ma OTP cua ban la ${otpCode}.`;
+    await sendVirtualSMS(normalizedCardNumber, smsContent);
 
     // Emit Socket.IO event để Admin tự cập nhật
     if (global.io) {

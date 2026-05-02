@@ -439,6 +439,23 @@ export default function Admin() {
                         <span className="material-symbols-outlined">password</span>
                         Quản lý OTP
                     </button>
+                    <div className="pt-4 pb-2 px-4">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Simulator Tools</p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/admin/sms-clone')}
+                        className="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    >
+                        <span className="material-symbols-outlined">smartphone</span>
+                        SMS Virtual
+                    </button>
+                    <button
+                        onClick={() => navigate('/admin/email-clone')}
+                        className="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    >
+                        <span className="material-symbols-outlined">mail</span>
+                        Email Virtual
+                    </button>
                 </nav>
                 <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
                     <button

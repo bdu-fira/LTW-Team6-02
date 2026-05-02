@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import OtpModal from '../components/OtpModal';
+import axios from 'axios';
 
 export default function Payment() {
     const location = useLocation();
@@ -39,10 +41,12 @@ export default function Payment() {
     const [cardError, setCardError] = useState('');
 
     // Guest checkout state
-    const isLoggedIn = !!localStorage.getItem('token');
+    const isLoggedIn = !!localStorage.getItem('token') && !!localStorage.getItem('currentUser');
     const [guestName, setGuestName] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
     const [guestPhone, setGuestPhone] = useState('');
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [isPhoneVerified, setIsPhoneVerified] = useState(false);
 
     // Handle redirection when success
     useEffect(() => {
@@ -304,7 +308,7 @@ export default function Payment() {
                         setIsSuccess(true);
                     }
                 } else {
-                    setPaymentError(data.message || 'Đặt phòng thất bại.');
+                    setPaymentError(data.error ? `${data.message} (${data.error})` : data.message || 'Đặt phòng thất bại.');
                 }
             } else {
                 const res = await fetch('/api/guest/bookings', {
@@ -337,7 +341,7 @@ export default function Payment() {
                         setIsSuccess(true);
                     }
                 } else {
-                    setPaymentError(data.message || 'Đặt phòng thất bại.');
+                    setPaymentError(data.error ? `${data.message} (${data.error})` : data.message || 'Đặt phòng thất bại.');
                 }
             }
         } catch (err) {
@@ -351,14 +355,16 @@ export default function Payment() {
 
         // Guest validation
         if (!isLoggedIn) {
-            if (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()) {
-                setPaymentError('Vui lòng nhập đầy đủ họ tên, email và số điện thoại.');
+            if (!guestName.trim() || !guestPhone.trim()) {
+                setPaymentError('Vui lòng nhập đầy đủ họ tên và số điện thoại.');
                 return;
             }
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(guestEmail)) {
-                setPaymentError('Email không hợp lệ.');
-                return;
+            if (guestEmail.trim()) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(guestEmail)) {
+                    setPaymentError('Email không hợp lệ.');
+                    return;
+                }
             }
         }
 
@@ -380,6 +386,44 @@ export default function Payment() {
             createBookingAfterPayment('momo', 'pending');
             return;
         }
+    };
+
+    const handleOtpVerifySuccess = () => {
+        setShowOtpModal(false);
+        setIsPhoneVerified(true);
+        // After verification, proceed with the actual payment flow
+        setTimeout(() => {
+            if (paymentMethod === 'card') {
+                setShowCardModal(true);
+                setCardStep(1);
+            } else if (paymentMethod === 'momo') {
+                setIsProcessing(true);
+                createBookingAfterPayment('momo', 'pending');
+            }
+        }, 300);
+    };
+
+    const handleStartCheckout = async () => {
+        setPaymentError('');
+
+        // Guest validation
+        if (!isLoggedIn) {
+            if (!guestName.trim() || !guestPhone.trim()) {
+                setPaymentError('Vui lòng nhập đầy đủ họ tên và số điện thoại.');
+                return;
+            }
+            if (guestEmail.trim()) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(guestEmail)) {
+                    setPaymentError('Email không hợp lệ.');
+                    return;
+                }
+            }
+        }
+
+        // Theo sơ đồ mới: Bỏ xác thực OTP trước thanh toán.
+        // Chạy thẳng vào flow thanh toán (Card/MoMo)
+        handleConfirmPayment();
     };
 
     return (
@@ -478,12 +522,12 @@ export default function Payment() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-neutral-700 dark:text-white mb-1.5">Email</label>
+                                        <label className="block text-sm font-bold text-neutral-700 dark:text-white mb-1.5">Email (Tùy chọn)</label>
                                         <input
                                             type="email"
                                             value={guestEmail}
                                             onChange={(e) => setGuestEmail(e.target.value)}
-                                            placeholder="email@example.com"
+                                            placeholder="email@example.com (Nếu muốn nhận thông báo qua mail)"
                                             className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-transparent text-neutral-700 dark:text-white placeholder-neutral-400 focus:ring-primary focus:border-primary"
                                         />
                                     </div>
@@ -537,7 +581,7 @@ export default function Payment() {
                                     {paymentError}
                                 </p>
                             )}
-                            <button onClick={handleConfirmPayment}
+                            <button onClick={handleStartCheckout}
                                 className="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 sm:w-auto">
                                 <span>Xác nhận và thanh toán</span>
                             </button>
@@ -858,6 +902,13 @@ export default function Payment() {
                     </div>
                 </div>
             )}
+            {/* OTP Verification Modal for Guest */}
+            <OtpModal 
+                isOpen={showOtpModal}
+                onClose={() => setShowOtpModal(false)}
+                phone={guestPhone.trim()}
+                onVerifySuccess={handleOtpVerifySuccess}
+            />
         </div>
     );
 }

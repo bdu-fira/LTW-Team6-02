@@ -7,24 +7,25 @@ export async function POST(req) {
     try {
         const body = await req.json();
         const { email, password } = body;
+        const identifier = email; // frontend có thể gửi SĐT hoặc email qua trường này
 
-        if (!email || !password) {
-            return NextResponse.json({ message: 'Vui lòng cung cấp email và mật khẩu' }, { status: 400 });
+        if (!identifier || !password) {
+            return NextResponse.json({ message: 'Vui lòng cung cấp tài khoản và mật khẩu' }, { status: 400 });
         }
 
-        // Check for user
-        const [users] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+        // Check for user by email or phone
+        const [users] = await db.execute('SELECT * FROM users WHERE email = ? OR phone = ?', [identifier, identifier]);
         const user = users[0];
 
         if (!user) {
-            return NextResponse.json({ message: 'Email hoặc mật khẩu không chính xác' }, { status: 400 });
+            return NextResponse.json({ message: 'Tài khoản hoặc mật khẩu không chính xác' }, { status: 400 });
         }
 
         // Verify password
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return NextResponse.json({ message: 'Email hoặc mật khẩu không chính xác' }, { status: 400 });
+            return NextResponse.json({ message: 'Tài khoản hoặc mật khẩu không chính xác' }, { status: 400 });
         }
 
         // Create JWT Token

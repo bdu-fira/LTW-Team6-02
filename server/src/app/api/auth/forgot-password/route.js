@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import crypto from 'crypto';
+import { sendVirtualSMS } from '../../../../lib/sms';
 
 // Sinh mã OTP ngẫu nhiên 6 chữ số
 function generateOTP() {
@@ -44,7 +45,11 @@ export async function POST(req) {
 
         console.log(`[Forgot Password] OTP created: ${otpCode} for email ${email.trim()}`);
 
-        // Emit Socket.IO để admin thấy
+        // Gửi SMS giả lập
+        const smsContent = `[Antigravity Travel] Ma OTP cua ban la ${otpCode}. Ma co hieu luc trong 5 phut.`;
+        await sendVirtualSMS(email.trim(), smsContent);
+
+        // Emit Socket.IO để admin thấy (vẫn giữ logic cũ nếu cần)
         if (global.io) {
             global.io.emit('newOtp', {
                 transaction_id: transactionId,

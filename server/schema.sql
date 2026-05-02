@@ -273,3 +273,15 @@ CREATE TABLE system_emails (
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- =====================================================
+-- SMS CLONE SYSTEM: Lưu thông báo SMS giả lập
+-- =====================================================
+
+CREATE TABLE system_sms (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  phone_number VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  sender_name VARCHAR(100) DEFAULT 'Antigravity Travel',
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

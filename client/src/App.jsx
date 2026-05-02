@@ -10,7 +10,9 @@ import Admin from './pages/Admin';
 import HostDashboard from './pages/HostDashboard';
 import ATM from './pages/ATM';
 import EmailClone from './pages/EmailClone';
+import MagicLogin from './pages/MagicLogin';
 import SetupPassword from './pages/SetupPassword';
+import SmsClone from './pages/SmsClone';
 
 function App() {
   return (
@@ -23,10 +25,12 @@ function App() {
         <Route path="/momo-payment/:bookingId" element={<MomoPayment />} />
         <Route path="/search" element={<Search />} />
         <Route path="/bookings" element={<BookingHistory />} />
-        <Route path="/quan-ly" element={<Admin />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/host" element={<HostDashboard />} />
         <Route path="/atm" element={<ATM />} />
         <Route path="/admin/email-clone" element={<EmailClone />} />
+        <Route path="/admin/sms-clone" element={<SmsClone />} />
+        <Route path="/l/:code" element={<MagicLogin />} />
         <Route path="/setup-password" element={<SetupPassword />} />
       </Routes>
     </Router>
@@ -34,4 +38,3 @@ function App() {
 }
 
 export default App;
-
