@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 import crypto from 'crypto';
 import { sendVirtualSMS } from '../../../../lib/sms';
+import { sendVirtualEmail } from '../../../../lib/email';
 
 function generateOTP() {
     return crypto.randomInt(100000, 999999).toString();
@@ -63,10 +64,27 @@ export async function POST(req) {
             [id, otp, type]
         );
 
-        // Send OTP via virtual SMS (works for both phone and email as virtual notification)
-        const displayId = isEmailType ? id : id;
-        const smsContent = `[Aoklevart] Ma OTP dang nhap cua ban la ${otp}. Ma co hieu luc trong 5 phut. Khong chia se ma nay cho bat ky ai.`;
-        await sendVirtualSMS(displayId, smsContent);
+        // Send OTP via appropriate channel
+        if (isEmailType) {
+            const subject = '[Aoklevart] Mã OTP đăng nhập của bạn';
+            const emailContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #333; text-align: center;">Xác thực đăng nhập</h2>
+                    <p>Chào bạn,</p>
+                    <p>Mã OTP để đăng nhập vào tài khoản <b>Aoklevart</b> của bạn là:</p>
+                    <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #1a73e8; margin: 20px 0; border-radius: 5px;">
+                        ${otp}
+                    </div>
+                    <p>Mã này có hiệu lực trong <b>5 phút</b>. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 12px; color: #888; text-align: center;">Đây là email tự động, vui lòng không phản hồi.</p>
+                </div>
+            `;
+            await sendVirtualEmail(id, subject, emailContent);
+        } else {
+            const smsContent = `[Aoklevart] Ma OTP dang nhap cua ban la ${otp}. Ma co hieu luc trong 5 phut. Khong chia se ma nay cho bat ky ai.`;
+            await sendVirtualSMS(id, smsContent);
+        }
 
         console.log(`[Login OTP] OTP ${otp} sent to ${id} (${type})`);
 

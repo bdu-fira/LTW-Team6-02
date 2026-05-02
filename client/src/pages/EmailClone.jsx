@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
 
 export default function EmailClone() {
     const navigate = useNavigate();
@@ -7,10 +8,42 @@ export default function EmailClone() {
     const [loading, setLoading] = useState(true);
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
+    const socketRef = useRef(null);
+
+    const SERVER_URL = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
 
     useEffect(() => {
         fetchEmails();
+
+        // Setup Socket.IO
+        socketRef.current = io(SERVER_URL);
+
+        socketRef.current.on('connect', () => {
+            setIsConnected(true);
+            console.log('Connected to Email socket');
+        });
+
+        socketRef.current.on('disconnect', () => {
+            setIsConnected(false);
+        });
+
+        socketRef.current.on('new_email', (email) => {
+            setEmails(prev => [email, ...prev]);
+            playNotificationSound();
+        });
+
+        return () => {
+            if (socketRef.current) socketRef.current.disconnect();
+        };
     }, []);
+
+    const playNotificationSound = () => {
+        try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+            audio.play();
+        } catch (e) { }
+    };
 
     const fetchEmails = async () => {
         try {
@@ -148,6 +181,10 @@ export default function EmailClone() {
                     <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <span className="material-symbols-outlined text-gray-600">settings</span>
                     </button>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold border border-green-100">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                        {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+                    </div>
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">A</div>
                 </div>
 

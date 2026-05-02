@@ -26,7 +26,7 @@ const SmsClone = () => {
     const socketRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const SERVER_URL = 'http://localhost:3000';
+    const SERVER_URL = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
 
     useEffect(() => {
         // Update time every minute

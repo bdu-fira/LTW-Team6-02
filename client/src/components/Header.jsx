@@ -291,16 +291,41 @@ export default function Header() {
         setIsMobileMenuOpen(false);
     };
 
-    const openForgotPassword = () => {
+    const openForgotPassword = async () => {
+        const identifier = otpIdentifier?.trim();
         setIsLoginOpen(false);
         setIsForgotOpen(true);
         setForgotStep(1);
-        setForgotEmail('');
+        setForgotEmail(identifier || '');
         setForgotError('');
         setForgotSuccess('');
         setForgotOtp(['', '', '', '', '', '']);
         setForgotNewPassword('');
         setForgotConfirmPassword('');
+
+        // Nếu đã có sẵn SĐT/Email, tự động gửi OTP luôn
+        if (identifier) {
+            setForgotLoading(true);
+            try {
+                const res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: identifier })
+                });
+                const data = await res.json();
+                setForgotLoading(false);
+                if (data.success) {
+                    setForgotTransactionId(data.transaction_id);
+                    setForgotStep(2);
+                    setForgotCountdown(300);
+                } else {
+                    setForgotError(data.message);
+                }
+            } catch {
+                setForgotLoading(false);
+                setForgotError('Lỗi kết nối máy chủ');
+            }
+        }
     };
 
     // Forgot password OTP input handlers
@@ -458,7 +483,7 @@ export default function Header() {
                                 Về chúng tôi
                             </a>
                             {currentUser && currentUser.role === 'admin' && (
-                                <Link to="/quan-ly" className="nav-link text-sm font-medium text-primary hover:text-primary-light transition-colors duration-300">
+                                <Link to="/admin" className="nav-link text-sm font-medium text-primary hover:text-primary-light transition-colors duration-300">
                                     Quản lý
                                 </Link>
                             )}
@@ -511,14 +536,14 @@ export default function Header() {
             </header>
 
             {/* Mobile Menu Overlay */}
-            <div 
+            <div
                 className={`fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setIsMobileMenuOpen(false)}
             />
 
             {/* Mobile Menu Panel */}
             <div className={`fixed inset-y-0 right-0 z-[1000] w-[85%] max-w-sm bg-white shadow-2xl transform transition-transform duration-400 ease-out lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
-                 style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}>
                 <div className="flex flex-col h-full">
                     {/* Menu Header */}
                     <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100">
@@ -539,30 +564,30 @@ export default function Header() {
                         {/* Navigation Links */}
                         <nav className="px-4 py-4">
                             <a href="/#featured-properties-section" onClick={() => setIsMobileMenuOpen(false)}
-                               className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                 <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>hotel</span>
                                 <span className="text-[15px] font-medium">Chỗ ở</span>
                             </a>
                             <a href="/#destinations-section" onClick={() => setIsMobileMenuOpen(false)}
-                               className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                 <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>explore</span>
                                 <span className="text-[15px] font-medium">Điểm đến</span>
                             </a>
                             <a href="/#about-section" onClick={() => setIsMobileMenuOpen(false)}
-                               className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                 <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>info</span>
                                 <span className="text-[15px] font-medium">Về chúng tôi</span>
                             </a>
                             {currentUser && currentUser.role === 'admin' && (
                                 <Link to="/quan-ly" onClick={() => setIsMobileMenuOpen(false)}
-                                      className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
+                                    className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
                                     <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>admin_panel_settings</span>
                                     <span className="text-[15px] font-medium">Quản lý</span>
                                 </Link>
                             )}
                             {currentUser && currentUser.role === 'host' && (
                                 <Link to="/host" onClick={() => setIsMobileMenuOpen(false)}
-                                      className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
+                                    className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-primary hover:bg-primary/5 transition-all duration-200 group">
                                     <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>real_estate_agent</span>
                                     <span className="text-[15px] font-medium">Host Dashboard</span>
                                 </Link>
@@ -595,17 +620,17 @@ export default function Header() {
 
                                     {/* User Menu Items */}
                                     <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}
-                                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                        className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                         <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>person</span>
                                         <span className="text-[15px] font-medium">Thông tin</span>
                                     </Link>
                                     <Link to="/profile#favorites" onClick={() => setIsMobileMenuOpen(false)}
-                                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                        className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                         <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>favorite</span>
                                         <span className="text-[15px] font-medium">Ưu thích</span>
                                     </Link>
                                     <Link to="/bookings" onClick={() => setIsMobileMenuOpen(false)}
-                                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
+                                        className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-charcoal hover:bg-primary/5 hover:text-primary transition-all duration-200 group">
                                         <span className="material-symbols-outlined text-xl text-warm-gray group-hover:text-primary transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>calendar_month</span>
                                         <span className="text-[15px] font-medium">Lịch sử đặt phòng</span>
                                     </Link>
@@ -613,7 +638,7 @@ export default function Header() {
                                     <div className="mx-2 my-2 border-t border-neutral-100"></div>
 
                                     <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
-                                            className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-red-500 hover:bg-red-50 transition-all duration-200 w-full group">
+                                        className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-red-500 hover:bg-red-50 transition-all duration-200 w-full group">
                                         <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>logout</span>
                                         <span className="text-[15px] font-medium">Đăng xuất</span>
                                     </button>
@@ -633,11 +658,11 @@ export default function Header() {
             {isLoginOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setIsLoginOpen(false)}></div>
-                    <div className="relative w-full max-w-[860px] bg-white rounded-3xl shadow-2xl login-modal-enter overflow-hidden flex" style={{maxHeight:'92vh'}}>
+                    <div className="relative w-full max-w-[860px] bg-white rounded-3xl shadow-2xl login-modal-enter overflow-hidden flex" style={{ maxHeight: '92vh' }}>
 
                         {/* Left brand panel - hidden on mobile */}
                         <div className="hidden md:flex flex-col justify-between w-[340px] flex-shrink-0 login-brand-gradient text-white p-10 relative overflow-hidden">
-                            <div className="absolute inset-0 opacity-[0.07]" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}></div>
+                            <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }}></div>
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2.5 mb-10">
                                     <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
@@ -645,7 +670,7 @@ export default function Header() {
                                     </div>
                                     <span className="font-display text-lg font-semibold tracking-tight">Aoklevart</span>
                                 </div>
-                                <h3 className="text-[26px] font-bold leading-tight mb-4">Khám phá kỳ nghỉ<br/>hoàn hảo của bạn</h3>
+                                <h3 className="text-[26px] font-bold leading-tight mb-4">Khám phá kỳ nghỉ<br />hoàn hảo của bạn</h3>
                                 <p className="text-white/70 text-sm leading-relaxed">Hàng nghìn chỗ ở cao cấp đang chờ bạn. Đăng nhập để nhận ưu đãi độc quyền.</p>
                             </div>
                             <div className="relative z-10 flex items-center gap-3 pt-6 border-t border-white/15">
@@ -669,7 +694,7 @@ export default function Header() {
                             <div className="px-8 py-6 flex-1">
                                 {loginPromptMessage && (
                                     <div className="flex items-center gap-2 p-3 mb-4 bg-teal-50 border border-teal-100 rounded-xl">
-                                        <span className="material-symbols-outlined text-teal-600 !text-lg" style={{fontVariationSettings:"'FILL' 1"}}>info</span>
+                                        <span className="material-symbols-outlined text-teal-600 !text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
                                         <p className="text-xs font-medium text-teal-700">{loginPromptMessage}</p>
                                     </div>
                                 )}
@@ -764,12 +789,14 @@ export default function Header() {
                                         <div>
                                             <div className="flex items-center justify-between mb-2">
                                                 <label className="text-[13px] font-semibold text-neutral-700">Mật khẩu</label>
-                                                <button type="button" onClick={openForgotPassword} className="text-xs text-primary font-medium hover:underline">Quên mật khẩu?</button>
                                             </div>
                                             <div className="relative">
                                                 <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 !text-lg">lock</span>
                                                 <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required placeholder="••••••••"
                                                     className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-neutral-200 focus:border-primary focus:outline-none transition-all bg-white text-sm" autoFocus />
+                                            </div>
+                                            <div className="text-right mt-2">
+                                                <button type="button" onClick={openForgotPassword} className="text-xs text-primary font-medium hover:underline">Quên mật khẩu?</button>
                                             </div>
                                         </div>
                                         <button type="submit" className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-light transition-all shadow-lg shadow-primary/20 text-sm">
@@ -878,10 +905,12 @@ export default function Header() {
                                 </h2>
                                 <p className="text-warm-gray text-sm">
                                     {forgotStep === 1
-                                        ? 'Nhập email đã đăng ký để nhận mã OTP'
+                                        ? 'Nhập Email hoặc Số điện thoại để nhận mã OTP'
                                         : forgotStep === 2
-                                        ? 'Lấy mã OTP tại trang Quản trị → Quản lý OTP'
-                                        : 'Nhập mật khẩu mới cho tài khoản của bạn'}
+                                            ? (forgotEmail.includes('@') 
+                                                ? 'Vui lòng kiểm tra hộp thư email của bạn để lấy mã OTP' 
+                                                : 'Vui lòng kiểm tra tin nhắn SMS trên điện thoại của bạn')
+                                            : 'Nhập mật khẩu mới cho tài khoản của bạn'}
                                 </p>
                             </div>
 
@@ -892,13 +921,13 @@ export default function Header() {
                             {forgotStep === 1 && (
                                 <form onSubmit={handleForgotSubmitEmail} className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-charcoal mb-1.5">Email</label>
+                                        <label className="block text-sm font-medium text-charcoal mb-1.5">Email hoặc Số điện thoại</label>
                                         <input
-                                            type="email"
+                                            type="text"
                                             value={forgotEmail}
                                             onChange={e => setForgotEmail(e.target.value)}
                                             required
-                                            placeholder="name@example.com"
+                                            placeholder="Nhập email hoặc SĐT"
                                             className="w-full px-4 py-3 rounded-xl border border-neutral-200 focus:border-primary focus:ring-primary transition-colors bg-neutral-50"
                                         />
                                     </div>

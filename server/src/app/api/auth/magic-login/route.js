@@ -58,6 +58,7 @@ export async function POST(req) {
                 phone: user.phone,
                 role: user.role
             },
+            needsPasswordSetup: !!decoded.needsPasswordSetup, // Pass the flag to frontend
             message: 'Đăng nhập thành công!'
         });
 

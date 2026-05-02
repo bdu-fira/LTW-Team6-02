@@ -32,11 +32,18 @@ const MagicLogin = () => {
                     window.dispatchEvent(new Event('userUpdated'));
                     
                     setStatus('success');
-                    setMessage('Đăng nhập thành công! Đang chuyển hướng bạn đến trang thiết lập mật khẩu...');
                     
-                    setTimeout(() => {
-                        navigate('/setup-password');
-                    }, 1500);
+                    if (loginRes.data.needsPasswordSetup) {
+                        setMessage('Đăng nhập thành công! Đang chuyển hướng bạn đến trang thiết lập mật khẩu...');
+                        setTimeout(() => {
+                            navigate('/setup-password');
+                        }, 1500);
+                    } else {
+                        setMessage('Đăng nhập thành công! Đang chuyển hướng bạn đến trang chủ...');
+                        setTimeout(() => {
+                            navigate('/');
+                        }, 1500);
+                    }
                 }
             } catch (err) {
                 console.error(err);

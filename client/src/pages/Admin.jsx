@@ -8,6 +8,7 @@ export default function Admin() {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
 
     // Stats state
     const [stats, setStats] = useState({
@@ -95,7 +96,20 @@ export default function Admin() {
 
         socket.on('connect', () => {
             console.log('Admin Socket connected');
+            setIsConnected(true);
         });
+
+        socket.on('disconnect', () => {
+            console.log('Admin Socket disconnected');
+            setIsConnected(false);
+        });
+
+        const playNotificationSound = () => {
+            try {
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                audio.play();
+            } catch (e) { }
+        };
 
         // Listen for booking status changes - refresh bookings list
         socket.on('bookingStatusChanged', (data) => {
@@ -111,6 +125,7 @@ export default function Admin() {
         // Listen for new bookings - refresh bookings list
         socket.on('newBooking', (data) => {
             console.log('New booking:', data);
+            playNotificationSound();
             if (activeTabRef.current === 'bookings') {
                 fetchBookings();
             }
@@ -401,7 +416,13 @@ export default function Admin() {
             <aside className="w-64 bg-white border-r border-gray-200 fixed h-full">
                 <div className="p-6 border-b border-gray-200">
                     <h1 className="text-xl font-bold text-primary">Admin Panel</h1>
-                    <p className="text-sm text-gray-500">Quản lý hệ thống</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-500">Quản lý hệ thống</p>
+                        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold ${isConnected ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            {isConnected ? 'LIVE' : 'OFFLINE'}
+                        </div>
+                    </div>
                 </div>
                 <nav className="p-4 space-y-2">
                     <button

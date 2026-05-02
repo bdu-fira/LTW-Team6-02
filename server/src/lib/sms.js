@@ -9,7 +9,7 @@ import db from './db';
 export async function sendVirtualSMS(phoneNumber, content) {
     try {
         // 1. Store in database
-        await db.execute(
+        const [result] = await db.execute(
             'INSERT INTO system_sms (phone_number, content) VALUES (?, ?)',
             [phoneNumber, content]
         );
@@ -17,6 +17,7 @@ export async function sendVirtualSMS(phoneNumber, content) {
         // 2. Emit Socket.IO event if available
         if (global.io) {
             global.io.emit('new_sms', {
+                id: result.insertId,
                 phone_number: phoneNumber,
                 content: content,
                 sender_name: 'Antigravity Travel',

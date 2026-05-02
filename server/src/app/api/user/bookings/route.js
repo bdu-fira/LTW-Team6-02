@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import db from '../../../../lib/db';
+import { sendVirtualSMS } from '../../../../lib/sms';
+import { sendVirtualEmail } from '../../../../lib/email';
 
 export async function GET(req) {
     try {
@@ -177,10 +179,65 @@ export async function POST(req) {
             await connection.commit();
 
             // Lấy thông tin phụ để thông báo
-            const [propertyInfo] = await db.execute( // Có thể dùng db.execute ở đây vì data này không nằm trong transaction
+            const [propertyInfo] = await db.execute(
                 `SELECT p.name as property_name, p.host_id FROM properties p WHERE p.id = ?`,
                 [property_id]
             );
+
+            const [userInfo] = await db.execute(
+                `SELECT name, email, phone FROM users WHERE id = ?`,
+                [userId]
+            );
+
+            const propertyName = propertyInfo[0]?.property_name || 'Chỗ nghỉ';
+            const user = userInfo[0];
+
+            // Nếu thanh toán thành công ngay lập tức (confirmed)
+            if (finalStatus === 'confirmed' && user) {
+                // 1. Tạo Magic Token & Short Link để user xem booking dễ dàng
+                const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
+                const magicToken = jwt.sign({ 
+                    user: { id: userId }, 
+                    action: 'magic_login'
+                }, jwtSecret, { expiresIn: '24h' });
+                const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                await db.execute('INSERT INTO magic_links (code, token) VALUES (?, ?)', [shortCode, magicToken]);
+                const magicLink = `http://localhost:5173/l/${shortCode}`;
+
+                // 2. Gửi SMS
+                if (user.phone) {
+                    const smsMsg = `[Aoklevart] Dat phong #${bookingId} thanh cong tai ${propertyName}! Xem chi tiet tai: ${magicLink}`;
+                    await sendVirtualSMS(user.phone, smsMsg);
+                }
+
+                // 3. Gửi Email
+                if (user.email && !user.email.endsWith('@phone.system')) {
+                    const emailSubject = `[Aoklevart] Xác nhận đặt phòng #${bookingId} thành công`;
+                    const formattedPrice = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice);
+                    const emailContent = `
+                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
+                            <div style="background-color: #0f172a; padding: 30px; text-align: center;">
+                                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px;">Aoklevart</h1>
+                            </div>
+                            <div style="padding: 40px 30px;">
+                                <h2 style="color: #1e293b; font-size: 20px; margin-top: 0; margin-bottom: 20px;">Xác nhận đặt phòng thành công!</h2>
+                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Chào <strong>${user.name}</strong>,</p>
+                                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">Cảm ơn bạn đã lựa chọn Aoklevart. Đơn đặt phòng <strong>#${bookingId}</strong> tại <strong>${propertyName}</strong> đã được thanh toán thành công.</p>
+                                
+                                <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; border-radius: 4px; margin-bottom: 30px;">
+                                    <p style="margin: 0 0 10px 0; color: #334155; font-size: 15px;"><strong>Tổng thanh toán:</strong> <span style="color: #0ea5e9; font-size: 18px; font-weight: bold;">${formattedPrice}</span></p>
+                                    <p style="margin: 0; color: #64748b; font-size: 14px;">Thời gian: Nhận phòng ${check_in} - Trả phòng ${check_out}</p>
+                                </div>
+
+                                <div style="text-align: center; margin: 35px 0;">
+                                    <a href="${magicLink}" style="background-color: #0f172a; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; display: inline-block;">Xem chi tiết đặt phòng</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    await sendVirtualEmail(user.email, emailSubject, emailContent);
+                }
+            }
 
             // Emit Socket.IO event
             if (global.io) {
