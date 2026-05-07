@@ -7,12 +7,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },
       '/socket.io': {
-        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true,

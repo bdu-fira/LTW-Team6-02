@@ -35,14 +35,15 @@ export async function GET(req) {
             WHERE created_at >= DATE_FORMAT(NOW() ,'%Y-%m-01')
         `);
 
-        // Get top users (most bookings)
+        // Get top users (most successful bookings by total spend)
         const [topUsersResult] = await db.execute(`
             SELECT u.id, u.name, u.avatar, COUNT(b.id) as booking_count, SUM(b.total_price) as total_spent
             FROM users u
             JOIN bookings b ON u.id = b.customer_id
             WHERE u.email != 'walkin@system.com'
+            AND b.status IN ('completed', 'confirmed')
             GROUP BY u.id
-            ORDER BY booking_count DESC
+            ORDER BY total_spent DESC
             LIMIT 5
         `);
 
@@ -123,8 +124,8 @@ export async function GET(req) {
             totalUsers: usersResult[0].total,
             totalBookings: bookingsResult[0].total,
             totalProperties: propertiesResult[0].total,
-            totalRevenue: revenueResult[0].total,
-            platformRevenue: revenueResult[0].total * 0.1, // 10% fee
+            totalVolume: Number(revenueResult[0].total), // Total money processed
+            totalRevenue: Math.round(Number(revenueResult[0].total) / 1.1 * 0.1), // 10% service fee
             monthlyVisits: visitsResult[0].total,
             topUsers: topUsersResult,
             recentLogs: recentLogs,
@@ -140,9 +141,9 @@ export async function GET(req) {
             // Chart data
             revenueByMonth: revenueByMonth.map(r => ({
                 month: r.month,
-                revenue: Number(r.revenue),
-                bookings: Number(r.bookings),
-                platform: Number(r.revenue) * 0.1
+                totalVolume: Number(r.revenue),
+                revenue: Math.round(Number(r.revenue) / 1.1 * 0.1), // 10% fee is the actual revenue
+                bookings: Number(r.bookings)
             })),
             dailyVisits: dailyVisits.map(v => ({
                 date: v.date,

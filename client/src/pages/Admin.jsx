@@ -10,6 +10,7 @@ import {
 import api from '../utils/api';
 
 export default function Admin() {
+    console.log("Admin component mounting...");
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [currentUser, setCurrentUser] = useState(null);
@@ -25,7 +26,7 @@ export default function Admin() {
         totalBookings: 0,
         totalProperties: 0,
         totalRevenue: 0,
-        platformRevenue: 0,
+        totalVolume: 0,
         monthlyVisits: 0,
         topUsers: [],
         recentLogs: [],
@@ -72,13 +73,28 @@ export default function Admin() {
     const [editingProperty, setEditingProperty] = useState(null);
 
     useEffect(() => {
+        console.log("Admin mount effect running...");
+        // Safety timeout: force loading to false after 5 seconds if still stuck
+        const timer = setTimeout(() => {
+            setLoading(prev => {
+                if (prev) {
+                    console.warn("Safety timeout: forcing loading to false");
+                    return false;
+                }
+                return prev;
+            });
+        }, 5000);
+
         const user = JSON.parse(localStorage.getItem('currentUser'));
         if (!user || user.role !== 'admin') {
+            console.log("User not admin or missing, redirecting...", user);
             navigate('/');
             return;
         }
         setCurrentUser(user);
         fetchStats();
+        
+        return () => clearTimeout(timer);
     }, [navigate]);
 
     useEffect(() => {
@@ -182,12 +198,15 @@ export default function Admin() {
     }, [currentUser]);
 
     const fetchStats = async () => {
+        console.log("Fetching admin stats...");
         try {
             const res = await api.get('/api/admin/stats');
+            console.log("Stats fetched successfully:", res.data);
             setStats(res.data);
         } catch (err) {
             console.error('Error fetching stats:', err);
         } finally {
+            console.log("Finalizing fetchStats, setting loading to false");
             setLoading(false);
         }
     };
@@ -393,7 +412,7 @@ export default function Admin() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <Spinner size="lg" color="primary" />
             </div>
         );
     }
@@ -534,16 +553,16 @@ export default function Admin() {
                             <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-white shadow-lg shadow-amber-500/20">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="material-symbols-outlined text-white/80">payments</span>
-                                    <span className="text-[10px] uppercase font-bold text-white/70">Doanh thu</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Doanh thu (10%)</span>
                                 </div>
                                 <p className="text-lg font-black">{formatPrice(stats.totalRevenue)}</p>
                             </div>
                             <div className="bg-gradient-to-br from-primary to-indigo-600 rounded-xl p-4 text-white shadow-lg shadow-primary/20 ring-2 ring-white/20">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="material-symbols-outlined text-white/80">account_balance_wallet</span>
-                                    <span className="text-[10px] uppercase font-bold text-white/70">10% Phí</span>
+                                    <span className="material-symbols-outlined text-white/80">home_work</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Tổng chỗ ở</span>
                                 </div>
-                                <p className="text-lg font-black">{formatPrice(stats.platformRevenue)}</p>
+                                <p className="text-2xl font-black">{stats.totalProperties}</p>
                             </div>
                             <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl p-4 text-white shadow-lg shadow-rose-500/20">
                                 <div className="flex items-center justify-between mb-2">
@@ -566,20 +585,20 @@ export default function Admin() {
                                         <AreaChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                                 </linearGradient>
                                                 <linearGradient id="gPlat" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
-                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v) => [formatPrice(v), '']} labelFormatter={(l) => `Tháng ${l}`} />
-                                            <Area type="monotone" dataKey="revenue" name="Doanh thu" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#gRev)" />
-                                            <Area type="monotone" dataKey="platform" name="Phí 10%" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#gPlat)" strokeDasharray="5 5" />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v} />
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v, n) => [formatPrice(v), n]} labelFormatter={(l) => `Tháng ${l}`} />
+                                            <Area type="monotone" dataKey="revenue" name="Lợi nhuận (10%)" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#gRev)" />
+                                            <Area type="monotone" dataKey="totalVolume" name="Tổng giao dịch" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#gPlat)" strokeDasharray="5 5" />
                                             <Legend verticalAlign="top" height={28} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -592,11 +611,11 @@ export default function Admin() {
                                     <ResponsiveContainer>
                                         <BarChart data={stats.dailyVisits} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; }} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}`; }} />
                                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
                                             <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} labelFormatter={(d) => new Date(d).toLocaleDateString('vi-VN')} formatter={(v) => [v, 'Lượt xem']} />
                                             <Bar dataKey="visits" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={36}>
-                                                {(stats.dailyVisits || []).map((_, i) => <Cell key={i} fill={i === (stats.dailyVisits||[]).length - 1 ? '#6366f1' : '#c4b5fd'} />)}
+                                                {(stats.dailyVisits || []).map((_, i) => <Cell key={i} fill={i === (stats.dailyVisits || []).length - 1 ? '#6366f1' : '#c4b5fd'} />)}
                                             </Bar>
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -622,7 +641,7 @@ export default function Admin() {
                                     {Object.entries(stats.bookingsByStatus).map(([s, c]) => {
                                         const cl = { confirmed: 'bg-emerald-500', completed: 'bg-blue-500', cancelled: 'bg-red-500', pending: 'bg-amber-500' };
                                         const lb = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý' };
-                                        return (<div key={s} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className={`w-2.5 h-2.5 rounded-full ${cl[s]||'bg-gray-400'}`}></div><span className="text-gray-600">{lb[s]||s}</span></div><span className="font-bold text-gray-800">{c}</span></div>);
+                                        return (<div key={s} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className={`w-2.5 h-2.5 rounded-full ${cl[s] || 'bg-gray-400'}`}></div><span className="text-gray-600">{lb[s] || s}</span></div><span className="font-bold text-gray-800">{c}</span></div>);
                                     })}
                                 </div>
                             </div>
@@ -634,11 +653,12 @@ export default function Admin() {
                                 <div className="space-y-3">
                                     {stats.topUsers.map((user, idx) => {
                                         const medals = ['🥇', '🥈', '🥉'];
-                                        const barW = stats.topUsers.length > 0 ? Math.round((user.booking_count / stats.topUsers[0].booking_count) * 100) : 0;
+                                        const maxSpent = stats.topUsers.length > 0 ? Math.max(...stats.topUsers.map(u => Number(u.total_spent))) : 1;
+                                        const barW = Math.round((Number(user.total_spent) / maxSpent) * 100);
                                         return (
                                             <div key={user.id}>
                                                 <div className="flex items-center gap-3 mb-1">
-                                                    <span className="text-lg w-6 text-center">{medals[idx] || `#${idx+1}`}</span>
+                                                    <span className="text-lg w-6 text-center">{medals[idx] || `#${idx + 1}`}</span>
                                                     <img src={user.avatar} className="w-8 h-8 rounded-full object-cover border-2 border-gray-100" alt="" />
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between">
@@ -776,11 +796,10 @@ export default function Admin() {
                                             </td>
                                             <td className="py-3 px-4">{user.email}</td>
                                             <td className="py-3 px-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                    user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                                                    user.role === 'host' ? 'bg-purple-100 text-purple-800' :
-                                                    'bg-blue-100 text-blue-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                                                        user.role === 'host' ? 'bg-purple-100 text-purple-800' :
+                                                            'bg-blue-100 text-blue-800'
+                                                    }`}>
                                                     {user.role}
                                                 </span>
                                             </td>
@@ -985,9 +1004,8 @@ export default function Admin() {
                                             <td className="py-3 px-4">{property.host_name}</td>
                                             <td className="py-3 px-4">{formatPrice(property.price_display)}</td>
                                             <td className="py-3 px-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                    property.property_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${property.property_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                                    }`}>
                                                     {property.property_status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
                                                 </span>
                                             </td>
@@ -1060,7 +1078,7 @@ export default function Admin() {
                             <div className="flex gap-4">
                                 <select
                                     value={otpStatusFilter}
-                                    onChange={(e) => { setOtpStatusFilter(e.target.value); setOtpPagination(p => ({...p, page: 1})); }}
+                                    onChange={(e) => { setOtpStatusFilter(e.target.value); setOtpPagination(p => ({ ...p, page: 1 })); }}
                                     className="px-4 py-2 border border-gray-200 rounded-lg"
                                 >
                                     <option value="">Tất cả Status</option>
@@ -1106,11 +1124,10 @@ export default function Admin() {
                                             </td>
                                             <td className="py-3 px-4">{formatPrice(log.amount)}</td>
                                             <td className="py-3 px-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                    log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                    log.status === 'USED' ? 'bg-green-100 text-green-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                        log.status === 'USED' ? 'bg-green-100 text-green-800' :
+                                                            'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {log.status === 'PENDING' ? '⏳ Chờ xác nhận' : log.status === 'USED' ? '✅ Đã dùng' : '❌ Hết hạn'}
                                                 </span>
                                             </td>
