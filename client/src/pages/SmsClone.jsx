@@ -26,7 +26,7 @@ const SmsClone = () => {
     const socketRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const SERVER_URL = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
+
 
     useEffect(() => {
         // Update time every minute
@@ -36,7 +36,9 @@ const SmsClone = () => {
         fetchMessages();
 
         // Setup Socket.IO
-        socketRef.current = io(SERVER_URL);
+        // Đọc URL từ biến môi trường (nếu có), nếu không có thì để trống để Vite proxy tự lo
+        const SOCKET_URL = import.meta.env.VITE_API_URL || '';
+        socketRef.current = io(SOCKET_URL);
         socketRef.current.on('new_sms', (sms) => {
             setMessages(prev => [...prev, sms]);
             playNotificationSound();
@@ -51,7 +53,7 @@ const SmsClone = () => {
     const fetchMessages = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${SERVER_URL}/api/sms`);
+            const res = await axios.get(`/api/sms`);
             if (res.data.success) {
                 // Reverse to show oldest first in chat flow if needed, 
                 // but usually SMS apps show oldest at top.

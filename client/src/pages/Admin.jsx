@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import {
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -16,10 +20,22 @@ export default function Admin() {
         totalBookings: 0,
         totalProperties: 0,
         totalRevenue: 0,
+        platformRevenue: 0,
+        monthlyVisits: 0,
+        topUsers: [],
+        recentLogs: [],
         usersByRole: {},
         bookingsByStatus: {},
-        recentBookings: []
+        recentBookings: [],
+        revenueByMonth: [],
+        dailyVisits: [],
+        bookingsByDay: [],
+        propertiesByType: []
     });
+
+    // Logs state
+    const [fullLogs, setFullLogs] = useState([]);
+    const [logsPagination, setLogsPagination] = useState({ page: 1, total: 0, totalPages: 0 });
 
     // Users state
     const [users, setUsers] = useState([]);
@@ -75,6 +91,10 @@ export default function Admin() {
     useEffect(() => {
         if (activeTab === 'otps') fetchOtps();
     }, [activeTab, otpPagination.page, otpStatusFilter]);
+
+    useEffect(() => {
+        if (activeTab === 'logs') fetchLogs();
+    }, [activeTab, logsPagination.page]);
 
     // Socket.IO connection
     const socketRef = useRef(null);
@@ -255,6 +275,25 @@ export default function Admin() {
             }
         } catch (err) {
             console.error('Error fetching OTP logs:', err);
+        }
+    };
+
+    const fetchLogs = async () => {
+        try {
+            const params = new URLSearchParams({
+                page: logsPagination.page,
+                limit: 20
+            });
+            const res = await fetch(`/api/admin/logs?${params}`, {
+                headers: getAuthHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setFullLogs(data.logs);
+                setLogsPagination(data.pagination);
+            }
+        } catch (err) {
+            console.error('Error fetching logs:', err);
         }
     };
 
@@ -460,6 +499,13 @@ export default function Admin() {
                         <span className="material-symbols-outlined">password</span>
                         Quản lý OTP
                     </button>
+                    <button
+                        onClick={() => setActiveTab('logs')}
+                        className={`w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 ${activeTab === 'logs' ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                        <span className="material-symbols-outlined">history</span>
+                        Nhật ký hoạt động
+                    </button>
                     <div className="pt-4 pb-2 px-4">
                         <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Simulator Tools</p>
                     </div>
@@ -501,90 +547,177 @@ export default function Admin() {
                 {/* Dashboard Tab */}
                 {activeTab === 'dashboard' && (
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+                            <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                        </div>
 
                         {/* Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+                            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg shadow-blue-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">people</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Users</span>
+                                </div>
+                                <p className="text-2xl font-black">{stats.totalUsers}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg shadow-emerald-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">calendar_month</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Bookings</span>
+                                </div>
+                                <p className="text-2xl font-black">{stats.totalBookings}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl p-4 text-white shadow-lg shadow-violet-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">visibility</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Truy cập</span>
+                                </div>
+                                <p className="text-2xl font-black">{stats.monthlyVisits}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-white shadow-lg shadow-amber-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">payments</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Doanh thu</span>
+                                </div>
+                                <p className="text-lg font-black">{formatPrice(stats.totalRevenue)}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-primary to-indigo-600 rounded-xl p-4 text-white shadow-lg shadow-primary/20 ring-2 ring-white/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">account_balance_wallet</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">10% Phí</span>
+                                </div>
+                                <p className="text-lg font-black">{formatPrice(stats.platformRevenue)}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl p-4 text-white shadow-lg shadow-rose-500/20">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="material-symbols-outlined text-white/80">cancel</span>
+                                    <span className="text-[10px] uppercase font-bold text-white/70">Tỉ lệ hủy</span>
+                                </div>
+                                <p className="text-2xl font-black">
+                                    {stats.totalBookings > 0 ? Math.round(((stats.bookingsByStatus.cancelled || 0) / stats.totalBookings) * 100) : 0}%
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Charts Row 1: Revenue + Visits */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">Tổng Users</p>
-                                        <p className="text-3xl font-bold text-gray-800">{stats.totalUsers}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-blue-600">people</span>
-                                    </div>
+                                <h3 className="text-sm font-bold text-gray-800 mb-1">Doanh thu theo tháng</h3>
+                                <p className="text-[10px] text-gray-400 mb-3">6 tháng gần nhất</p>
+                                <div style={{ width: '100%', height: 240 }}>
+                                    <ResponsiveContainer>
+                                        <AreaChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                                </linearGradient>
+                                                <linearGradient id="gPlat" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v) => [formatPrice(v), '']} labelFormatter={(l) => `Tháng ${l}`} />
+                                            <Area type="monotone" dataKey="revenue" name="Doanh thu" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#gRev)" />
+                                            <Area type="monotone" dataKey="platform" name="Phí 10%" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#gPlat)" strokeDasharray="5 5" />
+                                            <Legend verticalAlign="top" height={28} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">Tổng Bookings</p>
-                                        <p className="text-3xl font-bold text-gray-800">{stats.totalBookings}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-green-600">calendar_month</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">Tổng Properties</p>
-                                        <p className="text-3xl font-bold text-gray-800">{stats.totalProperties}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-purple-600">home_work</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">Tổng Doanh thu</p>
-                                        <p className="text-3xl font-bold text-gray-800">{formatPrice(stats.totalRevenue)}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-yellow-600">payments</span>
-                                    </div>
+                                <h3 className="text-sm font-bold text-gray-800 mb-1">Lượt truy cập</h3>
+                                <p className="text-[10px] text-gray-400 mb-3">7 ngày gần nhất</p>
+                                <div style={{ width: '100%', height: 240 }}>
+                                    <ResponsiveContainer>
+                                        <BarChart data={stats.dailyVisits} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; }} />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} labelFormatter={(d) => new Date(d).toLocaleDateString('vi-VN')} formatter={(v) => [v, 'Lượt xem']} />
+                                            <Bar dataKey="visits" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                                                {(stats.dailyVisits || []).map((_, i) => <Cell key={i} fill={i === (stats.dailyVisits||[]).length - 1 ? '#6366f1' : '#c4b5fd'} />)}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Users by Role */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        {/* Charts Row 2: Pie + Top Users + Activity */}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <h3 className="text-lg font-semibold mb-4">Users theo Role</h3>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Admin</span>
-                                        <span className="font-semibold">{stats.usersByRole.admin || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Host</span>
-                                        <span className="font-semibold">{stats.usersByRole.host || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Customer</span>
-                                        <span className="font-semibold">{stats.usersByRole.customer || 0}</span>
-                                    </div>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3">Trạng thái Booking</h3>
+                                <div style={{ width: '100%', height: 180 }}>
+                                    <ResponsiveContainer>
+                                        <PieChart>
+                                            <Pie data={Object.entries(stats.bookingsByStatus).map(([n, v]) => ({ name: n, value: v }))} cx="50%" cy="50%" innerRadius={45} outerRadius={72} paddingAngle={3} dataKey="value">
+                                                {Object.keys(stats.bookingsByStatus).map((k) => { const c = { confirmed: '#10b981', completed: '#3b82f6', cancelled: '#ef4444', pending: '#f59e0b' }; return <Cell key={k} fill={c[k] || '#6366f1'} />; })}
+                                            </Pie>
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v, n) => { const l = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý' }; return [v, l[n] || n]; }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="space-y-1.5 mt-1">
+                                    {Object.entries(stats.bookingsByStatus).map(([s, c]) => {
+                                        const cl = { confirmed: 'bg-emerald-500', completed: 'bg-blue-500', cancelled: 'bg-red-500', pending: 'bg-amber-500' };
+                                        const lb = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý' };
+                                        return (<div key={s} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className={`w-2.5 h-2.5 rounded-full ${cl[s]||'bg-gray-400'}`}></div><span className="text-gray-600">{lb[s]||s}</span></div><span className="font-bold text-gray-800">{c}</span></div>);
+                                    })}
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <h3 className="text-lg font-semibold mb-4">Bookings theo Status</h3>
+
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-2">
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-amber-500 text-lg">military_tech</span>Người dùng tích cực nhất
+                                </h3>
                                 <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Đã xác nhận</span>
-                                        <span className="font-semibold text-green-600">{stats.bookingsByStatus.confirmed || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Hoàn thành</span>
-                                        <span className="font-semibold text-blue-600">{stats.bookingsByStatus.completed || 0}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-600">Đã hủy</span>
-                                        <span className="font-semibold text-red-600">{stats.bookingsByStatus.cancelled || 0}</span>
-                                    </div>
+                                    {stats.topUsers.map((user, idx) => {
+                                        const medals = ['🥇', '🥈', '🥉'];
+                                        const barW = stats.topUsers.length > 0 ? Math.round((user.booking_count / stats.topUsers[0].booking_count) * 100) : 0;
+                                        return (
+                                            <div key={user.id}>
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <span className="text-lg w-6 text-center">{medals[idx] || `#${idx+1}`}</span>
+                                                    <img src={user.avatar} className="w-8 h-8 rounded-full object-cover border-2 border-gray-100" alt="" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
+                                                            <p className="text-xs font-bold text-primary ml-2 whitespace-nowrap">{formatPrice(user.total_spent)}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-9 flex items-center gap-2">
+                                                    <div className="flex-1 bg-gray-100 rounded-full h-1.5"><div className="bg-gradient-to-r from-primary to-violet-500 h-1.5 rounded-full" style={{ width: `${barW}%` }}></div></div>
+                                                    <span className="text-[10px] font-bold text-gray-400 w-14 text-right">{user.booking_count} đơn</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {stats.topUsers.length === 0 && <p className="text-center text-gray-400 text-sm py-6">Chưa có dữ liệu</p>}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-sm font-bold text-gray-800">Hoạt động</h3>
+                                    <button onClick={() => setActiveTab('logs')} className="text-[10px] text-primary font-bold hover:underline">Xem tất cả →</button>
+                                </div>
+                                <div className="space-y-3">
+                                    {stats.recentLogs.slice(0, 5).map((log) => (
+                                        <div key={log.id} className="flex gap-2.5">
+                                            <div className="flex flex-col items-center"><div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></div><div className="w-px flex-1 bg-gray-100 mt-1"></div></div>
+                                            <div className="pb-2">
+                                                <p className="text-[11px] text-gray-800 leading-snug"><span className="font-bold">{log.user_name || 'Hệ thống'}</span> {log.action}</p>
+                                                <p className="text-[9px] text-gray-400 mt-0.5">{new Date(log.created_at).toLocaleString('vi-VN')}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {stats.recentLogs.length === 0 && <p className="text-center text-gray-400 text-sm py-4">Chưa có hoạt động</p>}
                                 </div>
                             </div>
                         </div>
@@ -1073,6 +1206,80 @@ export default function Admin() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Activity Logs Tab */}
+                {activeTab === 'logs' && (
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Nhật ký hoạt động hệ thống</h2>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">ID</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Thời gian</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Người dùng</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Hành động</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Chi tiết</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fullLogs.map((log) => (
+                                        <tr key={log.id} className="border-t border-gray-100 hover:bg-gray-50">
+                                            <td className="py-3 px-4 text-xs">#{log.id}</td>
+                                            <td className="py-3 px-4 text-xs">{new Date(log.created_at).toLocaleString('vi-VN')}</td>
+                                            <td className="py-3 px-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold">{log.user_name || 'Hệ thống'}</span>
+                                                    <span className="text-[10px] text-gray-400">ID: {log.user_id || 'N/A'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-100">
+                                                    {log.action}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-4 max-w-xs">
+                                                <p className="text-xs text-gray-600 truncate" title={log.details}>
+                                                    {log.details || '-'}
+                                                </p>
+                                            </td>
+                                            <td className="py-3 px-4 text-xs font-mono text-gray-400">{log.ip_address}</td>
+                                        </tr>
+                                    ))}
+                                    {fullLogs.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" className="py-8 text-center text-gray-500">Chưa có nhật ký hoạt động</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {logsPagination.totalPages > 1 && (
+                            <div className="flex justify-center gap-2 mt-4">
+                                <button
+                                    onClick={() => setLogsPagination(p => ({ ...p, page: p.page - 1 }))}
+                                    disabled={logsPagination.page === 1}
+                                    className="px-4 py-2 border border-gray-200 rounded-lg disabled:opacity-50"
+                                >
+                                    Trước
+                                </button>
+                                <span className="px-4 py-2">
+                                    Trang {logsPagination.page} / {logsPagination.totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setLogsPagination(p => ({ ...p, page: p.page + 1 }))}
+                                    disabled={logsPagination.page === logsPagination.totalPages}
+                                    className="px-4 py-2 border border-gray-200 rounded-lg disabled:opacity-50"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

@@ -1,4 +1,6 @@
 -- Drop tables in reverse order of creation to avoid foreign key constraints
+DROP TABLE IF EXISTS site_visits;
+DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
 DROP TABLE IF EXISTS payments;
@@ -284,4 +286,28 @@ CREATE TABLE system_sms (
   sender_name VARCHAR(100) DEFAULT 'Antigravity Travel',
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- SYSTEM TRACKING: Lượt truy cập & Nhật ký hoạt động
+-- =====================================================
+
+CREATE TABLE site_visits (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  page_path VARCHAR(255),
+  ip_address VARCHAR(50),
+  user_agent TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE activity_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  action VARCHAR(255) NOT NULL,
+  details TEXT,
+  ip_address VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );

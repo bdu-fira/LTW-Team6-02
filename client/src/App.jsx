@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Home from './pages/Home';
 import Details from './pages/Details';
 import Profile from './pages/Profile';
@@ -14,9 +15,35 @@ import MagicLogin from './pages/MagicLogin';
 import SetupPassword from './pages/SetupPassword';
 import SmsClone from './pages/SmsClone';
 
+function RouteTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const trackVisit = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        await fetch('/api/tracking/visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            page_path: location.pathname,
+            user_id: user ? user.id : null
+          })
+        });
+      } catch (err) {
+        // Silent error
+      }
+    };
+    trackVisit();
+  }, [location]);
+
+  return null;
+}
+
 function App() {
   return (
     <Router>
+      <RouteTracker />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/details/:id" element={<Details />} />

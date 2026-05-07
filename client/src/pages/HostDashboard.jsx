@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 
 export default function HostDashboard() {
     const navigate = useNavigate();
@@ -222,10 +226,59 @@ export default function HostDashboard() {
     }).length;
 
     const totalRevenue = bookings
-        .filter(b => b.status === 'confirmed' || b.status === 'completed')
+        .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
         .reduce((sum, b) => sum + Number(b.total_price), 0);
     const totalBookings = bookings.length;
     const totalProperties = properties.length;
+    const webBookingsCount = bookings.filter(b => b.customer_email !== 'walkin@system.com').length;
+    const walkinCount = bookings.filter(b => b.customer_email === 'walkin@system.com').length;
+    const confirmedCount = bookings.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
+
+    // Chart data computed from bookings
+    const chartData = useMemo(() => {
+        // Revenue by month (from bookings)
+        const revenueMap = {};
+        bookings.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
+            .forEach(b => {
+                const m = new Date(b.created_at).toISOString().slice(0, 7);
+                revenueMap[m] = (revenueMap[m] || 0) + Number(b.total_price);
+            });
+        const revenueByMonth = Object.entries(revenueMap)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-6)
+            .map(([month, revenue]) => ({ month, revenue }));
+
+        // Bookings by status
+        const statusMap = {};
+        bookings.forEach(b => { statusMap[b.status] = (statusMap[b.status] || 0) + 1; });
+        const bookingsByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
+
+        // Bookings per day (last 7 days)
+        const dayMap = {};
+        const now = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(now); d.setDate(d.getDate() - i);
+            dayMap[d.toISOString().slice(0, 10)] = 0;
+        }
+        bookings.forEach(b => {
+            const d = new Date(b.created_at).toISOString().slice(0, 10);
+            if (dayMap[d] !== undefined) dayMap[d]++;
+        });
+        const bookingsByDay = Object.entries(dayMap).map(([date, count]) => ({ date, count }));
+
+        // Top properties by bookings
+        const propMap = {};
+        bookings.forEach(b => {
+            if (!propMap[b.property_name]) propMap[b.property_name] = { name: b.property_name, count: 0, revenue: 0 };
+            propMap[b.property_name].count++;
+            if ((b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com') {
+                propMap[b.property_name].revenue += Number(b.total_price);
+            }
+        });
+        const topProperties = Object.values(propMap).sort((a, b) => b.count - a.count).slice(0, 5);
+
+        return { revenueByMonth, bookingsByStatus, bookingsByDay, topProperties };
+    }, [bookings]);
 
     if (loading) {
         return (
@@ -309,102 +362,181 @@ export default function HostDashboard() {
                 {/* Dashboard Tab */}
                 {activeTab === 'dashboard' && (
                     <div className="animate-fade-in-up">
-                        <h2 className="text-3xl font-display font-bold text-gray-800 mb-8">Tổng quan hoạt động</h2>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-display font-bold text-gray-800">Tổng quan hoạt động</h2>
+                            <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                        </div>
 
                         {/* Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div className="bg-white rounded-xl shadow-elegant hover-lift p-6 border border-light-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Doanh thu dự kiến</p>
-                                        <p className="text-3xl font-bold gradient-text">{formatPrice(totalRevenue)}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-full flex items-center justify-center shadow-inner">
-                                        <span className="material-symbols-outlined text-yellow-600 text-2xl">payments</span>
-                                    </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-white shadow-lg shadow-amber-500/20 col-span-2 lg:col-span-1">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="material-symbols-outlined text-white/80">payments</span>
+                                    <span className="text-[9px] uppercase font-bold text-white/70">Doanh thu Web</span>
                                 </div>
+                                <p className="text-lg font-black">{formatPrice(totalRevenue)}</p>
+                                <p className="text-[9px] text-white/60 mt-0.5">* Không gồm nghiệp vụ ngoài web</p>
                             </div>
-                            
-                            <div className="bg-white rounded-xl shadow-elegant hover-lift p-6 border border-light-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Lượt đặt phòng</p>
-                                        <p className="text-3xl font-bold text-gray-800">{totalBookings}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-green-50 rounded-full flex items-center justify-center shadow-inner">
-                                        <span className="material-symbols-outlined text-green-600 text-2xl">event_available</span>
-                                    </div>
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg shadow-emerald-500/20">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="material-symbols-outlined text-white/80">event_available</span>
+                                    <span className="text-[9px] uppercase font-bold text-white/70">Tổng đơn</span>
                                 </div>
+                                <p className="text-2xl font-black">{totalBookings}</p>
                             </div>
-                            
-                            <div className="bg-white rounded-xl shadow-elegant hover-lift p-6 border border-light-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Phòng đang quản lý</p>
-                                        <p className="text-3xl font-bold text-gray-800">{totalProperties}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center shadow-inner">
-                                        <span className="material-symbols-outlined text-blue-600 text-2xl">real_estate_agent</span>
-                                    </div>
+                            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white shadow-lg shadow-blue-500/20">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="material-symbols-outlined text-white/80">real_estate_agent</span>
+                                    <span className="text-[9px] uppercase font-bold text-white/70">Chỗ nghỉ</span>
+                                </div>
+                                <p className="text-2xl font-black">{totalProperties}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl p-4 text-white shadow-lg shadow-violet-500/20">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="material-symbols-outlined text-white/80">language</span>
+                                    <span className="text-[9px] uppercase font-bold text-white/70">Web</span>
+                                </div>
+                                <p className="text-2xl font-black">{webBookingsCount}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl p-4 text-white shadow-lg shadow-rose-500/20">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="material-symbols-outlined text-white/80">directions_walk</span>
+                                    <span className="text-[9px] uppercase font-bold text-white/70">Walk-in</span>
+                                </div>
+                                <p className="text-2xl font-black">{walkinCount}</p>
+                            </div>
+                        </div>
+
+                        {/* Charts Row 1 */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-800 mb-1">Doanh thu Web theo tháng</h3>
+                                <p className="text-[10px] text-gray-400 mb-3">Chỉ tính đơn đặt qua web</p>
+                                <div style={{ width: '100%', height: 220 }}>
+                                    <ResponsiveContainer>
+                                        <AreaChart data={chartData.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="hRev" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v} />
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v) => [formatPrice(v), 'Doanh thu']} labelFormatter={(l) => `Tháng ${l}`} />
+                                            <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#hRev)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                {chartData.revenueByMonth.length === 0 && <p className="text-center text-gray-400 text-xs py-4">Chưa có dữ liệu</p>}
+                            </div>
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-800 mb-1">Đơn đặt phòng</h3>
+                                <p className="text-[10px] text-gray-400 mb-3">7 ngày gần nhất</p>
+                                <div style={{ width: '100%', height: 220 }}>
+                                    <ResponsiveContainer>
+                                        <BarChart data={chartData.bookingsByDay} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}`; }} />
+                                            <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} labelFormatter={(d) => new Date(d).toLocaleDateString('vi-VN')} formatter={(v) => [v, 'Đơn đặt']} />
+                                            <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                                                {chartData.bookingsByDay.map((_, i) => <Cell key={i} fill={i === chartData.bookingsByDay.length - 1 ? '#059669' : '#6ee7b7'} />)}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Recent Bookings in Dashboard */}
-                        <div className="bg-white rounded-xl shadow-elegant p-6 border border-light-border">
-                            <h3 className="text-xl font-bold font-display text-primary mb-6 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-accent">schedule</span>
-                                Đơn đặt phòng mới nhất
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-200 bg-gray-50">
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700 rounded-tl-lg">ID</th>
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700">Khách sạn/Phòng</th>
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700">Khách hàng</th>
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700">Ngày đặt</th>
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700">Trạng thái</th>
-                                            <th className="text-left py-4 px-4 font-semibold text-gray-700 rounded-tr-lg">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {bookings.slice(0, 5).map((booking) => (
-                                            <tr key={booking.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                                <td className="py-3 px-4 font-medium">#{booking.id}</td>
-                                                <td className="py-3 px-4 text-primary font-medium truncate max-w-[200px]">{booking.property_name}</td>
-                                                <td className="py-3 px-4">{booking.customer_name}</td>
-                                                <td className="py-3 px-4">{formatDate(booking.created_at)}</td>
-                                                <td className="py-3 px-4">{getStatusBadge(booking.status, booking.displayStatus)}</td>
-                                                <td className="py-3 px-4">
-                                                    <div className="flex gap-2">
-                                                        {(booking.displayStatus === 'not_checked_in' || (booking.status === 'confirmed' && !booking.displayStatus)) && (
-                                                            <button 
-                                                                onClick={() => handleStatusChange(booking.id, 'checked_in')}
-                                                                className="px-2 py-1 bg-indigo-500 text-white text-[10px] rounded hover:bg-indigo-600 transition-colors"
-                                                            >
-                                                                Check-in
-                                                            </button>
-                                                        )}
-                                                        {booking.status === 'checked_in' && (
-                                                            <button 
-                                                                onClick={() => handleStatusChange(booking.id, 'checked_out')}
-                                                                className="px-2 py-1 bg-teal-500 text-white text-[10px] rounded hover:bg-teal-600 transition-colors"
-                                                            >
-                                                                Check-out
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
+                        {/* Charts Row 2: Pie + Top Properties + Recent Bookings */}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                            {/* Status Pie */}
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-800 mb-3">Trạng thái đơn</h3>
+                                <div style={{ width: '100%', height: 160 }}>
+                                    <ResponsiveContainer>
+                                        <PieChart>
+                                            <Pie data={chartData.bookingsByStatus} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                                                {chartData.bookingsByStatus.map((entry) => {
+                                                    const c = { confirmed: '#10b981', completed: '#3b82f6', cancelled: '#ef4444', pending: '#f59e0b', checked_in: '#6366f1', checked_out: '#14b8a6' };
+                                                    return <Cell key={entry.name} fill={c[entry.name] || '#94a3b8'} />;
+                                                })}
+                                            </Pie>
+                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v, n) => { const l = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý', checked_in: 'Đã nhận phòng', checked_out: 'Đã trả phòng' }; return [v, l[n] || n]; }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    {chartData.bookingsByStatus.map((item) => {
+                                        const cl = { confirmed: 'bg-emerald-500', completed: 'bg-blue-500', cancelled: 'bg-red-500', pending: 'bg-amber-500', checked_in: 'bg-indigo-500', checked_out: 'bg-teal-500' };
+                                        const lb = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý', checked_in: 'Nhận phòng', checked_out: 'Trả phòng' };
+                                        return (<div key={item.name} className="flex items-center justify-between text-[11px]"><div className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-full ${cl[item.name]||'bg-gray-400'}`}></div><span className="text-gray-600">{lb[item.name]||item.name}</span></div><span className="font-bold text-gray-800">{item.value}</span></div>);
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Top Properties */}
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-1">
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-primary text-lg">hotel</span>Top chỗ nghỉ
+                                </h3>
+                                <div className="space-y-3">
+                                    {chartData.topProperties.map((prop, idx) => {
+                                        const barW = chartData.topProperties.length > 0 ? Math.round((prop.count / chartData.topProperties[0].count) * 100) : 0;
+                                        return (
+                                            <div key={prop.name}>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <p className="text-xs font-bold text-gray-700 truncate max-w-[120px]">{prop.name}</p>
+                                                    <p className="text-[10px] font-bold text-primary">{formatPrice(prop.revenue)}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 bg-gray-100 rounded-full h-1.5"><div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-1.5 rounded-full" style={{ width: `${barW}%` }}></div></div>
+                                                    <span className="text-[9px] text-gray-400 w-12 text-right">{prop.count} đơn</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {chartData.topProperties.length === 0 && <p className="text-center text-gray-400 text-xs py-4">Chưa có dữ liệu</p>}
+                                </div>
+                            </div>
+
+                            {/* Recent Bookings */}
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-2">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-primary text-lg">schedule</span>Đơn đặt mới nhất
+                                    </h3>
+                                    <button onClick={() => setActiveTab('bookings')} className="text-[10px] text-primary font-bold hover:underline">Xem tất cả →</button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="border-b border-gray-100">
+                                                <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                                                <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase tracking-wider">Chỗ nghỉ</th>
+                                                <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase tracking-wider">Khách</th>
+                                                <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase tracking-wider">Ngày</th>
+                                                <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
                                             </tr>
-                                        ))}
-                                        {bookings.length === 0 && (
-                                            <tr>
-                                                <td colSpan="5" className="py-8 text-center text-gray-500">Chưa có người đặt phòng</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {bookings.slice(0, 5).map((b) => (
+                                                <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                                                    <td className="py-2 px-2 font-mono text-gray-600">#{b.id}</td>
+                                                    <td className="py-2 px-2 font-medium text-gray-800 truncate max-w-[120px]">{b.property_name}</td>
+                                                    <td className="py-2 px-2 text-gray-600">{b.customer_name}</td>
+                                                    <td className="py-2 px-2 text-gray-600">{formatDate(b.created_at)}</td>
+                                                    <td className="py-2 px-2">{getStatusBadge(b.status, b.displayStatus)}</td>
+                                                </tr>
+                                            ))}
+                                            {bookings.length === 0 && (
+                                                <tr><td colSpan="5" className="py-6 text-center text-gray-400">Chưa có đơn đặt phòng</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>

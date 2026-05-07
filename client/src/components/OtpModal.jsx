@@ -48,7 +48,7 @@ const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:3000/api/auth/sms-otp', {
+            const res = await axios.post('/api/auth/sms-otp', {
                 action: 'verify',
                 phone,
                 code
@@ -69,7 +69,7 @@ const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
     const handleResend = async () => {
         setLoading(true);
         try {
-            await axios.post('http://localhost:3000/api/auth/sms-otp', {
+            await axios.post('/api/auth/sms-otp', {
                 action: 'send',
                 phone
             });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import db from '../../../../lib/db';
+import { logActivity } from '../../../../lib/logger';
 
 export async function POST(req) {
     let connection;
@@ -100,6 +101,10 @@ export async function POST(req) {
                 'UPDATE guest_bookings SET is_confirmed = TRUE WHERE id = ?',
                 [guestBooking.id]
             );
+
+            // Log activity
+            const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+            await logActivity(userId, 'Xác nhận đặt phòng', `Xác nhận thành công booking #${bookingId} từ email`, ip_address);
 
             // Tất cả thành công -> Commit transaction
             await connection.commit();

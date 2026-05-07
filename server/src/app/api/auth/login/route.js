@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../../../../lib/db';
+import { logActivity } from '../../../../lib/logger';
 
 export async function POST(req) {
     try {
         const body = await req.json();
         const { email, password } = body;
         const identifier = email; // frontend có thể gửi SĐT hoặc email qua trường này
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
 
         if (!identifier || !password) {
             return NextResponse.json({ message: 'Vui lòng cung cấp tài khoản và mật khẩu' }, { status: 400 });
@@ -36,6 +38,9 @@ export async function POST(req) {
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET || 'your_jwt_secret_key_here', { expiresIn: '30d' });
+
+        // Log login activity
+        await logActivity(user.id, 'Đăng nhập', `Đăng nhập thành công qua ${user.email}`, ip_address);
 
         return NextResponse.json({
             token,

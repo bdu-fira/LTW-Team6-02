@@ -11,13 +11,14 @@ export default function EmailClone() {
     const [isConnected, setIsConnected] = useState(false);
     const socketRef = useRef(null);
 
-    const SERVER_URL = window.location.origin.includes('localhost') ? 'http://localhost:3000' : window.location.origin;
 
     useEffect(() => {
         fetchEmails();
 
         // Setup Socket.IO
-        socketRef.current = io(SERVER_URL);
+        // Đọc URL từ biến môi trường (nếu có), nếu không có thì để trống để Vite proxy tự lo
+        const SOCKET_URL = import.meta.env.VITE_API_URL || '';
+        socketRef.current = io(SOCKET_URL);
 
         socketRef.current.on('connect', () => {
             setIsConnected(true);
