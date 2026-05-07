@@ -14,6 +14,7 @@ export default function Header() {
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
+    const [loginLoading, setLoginLoading] = useState(false);
 
     // OTP Login states
     const [loginMode, setLoginMode] = useState('identifier'); // 'identifier' | 'otp' | 'password'
@@ -31,6 +32,7 @@ export default function Header() {
     const [regPassword, setRegPassword] = useState('');
     const [regError, setRegError] = useState('');
     const [regSuccess, setRegSuccess] = useState('');
+    const [regLoading, setRegLoading] = useState(false);
 
     // Forgot password states
     const [isForgotOpen, setIsForgotOpen] = useState(false);
@@ -212,6 +214,7 @@ export default function Header() {
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoginError('');
+        setLoginLoading(true);
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -231,6 +234,7 @@ export default function Header() {
                 setLoginError(data.message || 'Tài khoản hoặc mật khẩu không chính xác.');
             }
         } catch { setLoginError('Lỗi kết nối máy chủ'); }
+        finally { setLoginLoading(false); }
     };
 
     const handleRegister = async (e) => {
@@ -243,6 +247,7 @@ export default function Header() {
             return;
         }
 
+        setRegLoading(true);
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
@@ -272,6 +277,8 @@ export default function Header() {
         } catch (error) {
             console.error('Registration error:', error);
             setRegError('Lỗi kết nối máy chủ');
+        } finally {
+            setRegLoading(false);
         }
     };
 

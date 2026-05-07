@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLoading } from '../LoadingContext';
+import { Spinner } from '../components/Loader';
 import { io } from 'socket.io-client';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -11,7 +13,9 @@ export default function Admin() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [tabLoading, setTabLoading] = useState(false);
     const [error, setError] = useState('');
+    const { startLoading, stopLoading } = useLoading();
     const [isConnected, setIsConnected] = useState(false);
 
     // Stats state
@@ -198,6 +202,8 @@ export default function Admin() {
     };
 
     const fetchUsers = async () => {
+        setTabLoading(true);
+        startLoading();
         try {
             const params = new URLSearchParams({
                 page: usersPagination.page,
@@ -215,10 +221,15 @@ export default function Admin() {
             }
         } catch (err) {
             console.error('Error fetching users:', err);
+        } finally {
+            setTabLoading(false);
+            stopLoading();
         }
     };
 
     const fetchBookings = async () => {
+        setTabLoading(true);
+        startLoading();
         try {
             const params = new URLSearchParams({
                 page: bookingsPagination.page,
@@ -235,10 +246,15 @@ export default function Admin() {
             }
         } catch (err) {
             console.error('Error fetching bookings:', err);
+        } finally {
+            setTabLoading(false);
+            stopLoading();
         }
     };
 
     const fetchProperties = async () => {
+        setTabLoading(true);
+        startLoading();
         try {
             const params = new URLSearchParams({
                 page: propertiesPagination.page,
@@ -255,10 +271,15 @@ export default function Admin() {
             }
         } catch (err) {
             console.error('Error fetching properties:', err);
+        } finally {
+            setTabLoading(false);
+            stopLoading();
         }
     };
 
     const fetchOtps = async () => {
+        setTabLoading(true);
+        startLoading();
         try {
             const params = new URLSearchParams({
                 page: otpPagination.page,
@@ -275,6 +296,9 @@ export default function Admin() {
             }
         } catch (err) {
             console.error('Error fetching OTP logs:', err);
+        } finally {
+            setTabLoading(false);
+            stopLoading();
         }
     };
 
@@ -541,6 +565,13 @@ export default function Admin() {
                     <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                         {error}
                         <button onClick={() => setError('')} className="float-right font-bold">&times;</button>
+                    </div>
+                )}
+
+                {/* Tab Loading Overlay */}
+                {tabLoading && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-[1px]">
+                        <Spinner size="lg" />
                     </div>
                 )}
 

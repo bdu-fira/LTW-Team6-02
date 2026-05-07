@@ -48,12 +48,17 @@ async function importDB() {
     console.log('\n🔄 Đang kết nối tới Database...');
 
     // Kết nối ban đầu không chọn database (để tạo nếu chưa có)
-    const initialConnection = await mysql.createConnection({
+    const initialConnection = await mysql.createConnection(process.env.DATABASE_URL ? {
+        uri: process.env.DATABASE_URL,
+        multipleStatements: true,
+        ssl: { rejectUnauthorized: false }
+    } : {
         host: process.env.DB_HOST,
         port: process.env.DB_PORT,
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
-        multipleStatements: true
+        multipleStatements: true,
+        ssl: { rejectUnauthorized: false }
     });
 
     // Tạo database nếu chưa tồn tại
@@ -61,68 +66,42 @@ async function importDB() {
     await initialConnection.end();
 
     // Kết nối lại với database đã chọn
-    const connection = await mysql.createConnection({
+    const connection = await mysql.createConnection(process.env.DATABASE_URL ? {
+        uri: process.env.DATABASE_URL,
+        multipleStatements: true,
+        ssl: { rejectUnauthorized: false }
+    } : {
         host: process.env.DB_HOST,
         port: process.env.DB_PORT,
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
-        multipleStatements: true
+        multipleStatements: true,
+        ssl: { rejectUnauthorized: false }
     });
 
     console.log('✅ Kết nối thành công!');
-    console.log('📥 Đang import dữ liệu...\n');
+    console.log('📥 Đang import dữ liệu toàn bộ... (Vui lòng đợi giây lát)\n');
 
     // Đọc file SQL
     const sqlContent = fs.readFileSync(dumpFile, 'utf8');
 
-    // Tách các câu lệnh bằng dấu ;
-    // Lọc bỏ comment (dòng bắt đầu bằng --) và dòng trống
-    const statements = sqlContent
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => {
-            if (s.length === 0) return false;
-            // Bỏ qua nếu chỉ toàn comment
-            const lines = s.split('\n').filter(l => !l.trim().startsWith('--') && l.trim().length > 0);
-            return lines.length > 0;
-        });
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const statement of statements) {
-        try {
-            // Lấy dòng lệnh chính (bỏ comment)
-            const mainLine = statement.split('\n').find(l => !l.trim().startsWith('--') && l.trim().length > 0);
-            if (mainLine) {
-                const preview = mainLine.trim().substring(0, 60);
-                process.stdout.write(`  ⏳ ${preview}...`);
-            }
-
-            await connection.query(statement);
-            successCount++;
-            process.stdout.write(' ✅\n');
-        } catch (err) {
-            errorCount++;
-            process.stdout.write(` ❌ ${err.message}\n`);
-        }
+    try {
+        // Chạy toàn bộ file SQL cùng một lúc nhờ multipleStatements: true
+        await connection.query(sqlContent);
+        console.log('🎉 IMPORT THÀNH CÔNG RỰC RỠ!');
+        console.log('📊 Đã nạp toàn bộ cấu trúc và dữ liệu vào Aiven.');
+    } catch (err) {
+        console.error('❌ Lỗi khi thực thi SQL:', err.message);
+        process.exit(1);
     }
 
     console.log('\n=========================================');
-    if (errorCount === 0) {
-        console.log('🎉 IMPORT THÀNH CÔNG!');
-    } else {
-        console.log(`⚠️  Import hoàn tất với ${errorCount} lỗi.`);
-    }
-    console.log(`📊 Tổng cộng: ${successCount} lệnh thành công, ${errorCount} lỗi`);
-    console.log('=========================================');
-    console.log('');
     console.log('👉 Bây giờ bạn có thể chạy server bình thường:');
     console.log('   npm run dev');
 
     await connection.end();
-    process.exit(errorCount > 0 ? 1 : 0);
+    process.exit(0);
 }
 
 importDB().catch(err => {

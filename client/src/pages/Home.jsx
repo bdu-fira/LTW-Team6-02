@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import { SkeletonCard } from '../components/Loader';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [properties, setProperties] = useState([]);
   const [featuredProperties, setFeaturedProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [favoriteIds, setFavoriteIds] = useState([]);
   const [showPromo, setShowPromo] = useState(true);
 
@@ -72,6 +74,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchProperties = async () => {
+      setLoading(true);
       try {
         const response = await fetch('/api/properties');
         if (response.ok) {
@@ -81,6 +84,8 @@ export default function Home() {
         }
       } catch (error) {
         console.error('Lỗi khi tải danh sách chỗ ở:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchProperties();
@@ -441,14 +446,19 @@ export default function Home() {
                   <div
                     ref={trackRef}
                     onTransitionEnd={handleTransitionEnd}
-                    className="flex"
+                    className="flex gap-6 carousel-track"
                     style={{
-                      gap: `${CARD_GAP}px`,
-                      transform: `translateX(-${CLONE_COUNT * SLIDE_WIDTH}px)`,
+                      transform: loading ? 'none' : `translateX(-${CLONE_COUNT * SLIDE_WIDTH}px)`,
                       transition: 'none'
                     }}
                   >
-                    {carouselItems.map((property, idx) => (
+                    {loading ? (
+                      [...Array(4)].map((_, i) => (
+                        <div key={`skeleton-${i}`} style={{ width: `${CARD_WIDTH}px` }} className="flex-shrink-0">
+                          <SkeletonCard />
+                        </div>
+                      ))
+                    ) : carouselItems.map((property, idx) => (
                       <div
                         key={`carousel-${idx}`}
                         className="carousel-card property-card group flex-shrink-0 bg-white rounded-2xl overflow-hidden shadow-elegant hover-lift cursor-pointer transition-all duration-300 select-none flex flex-col"

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../../../lib/db';
-import { verifyHost } from '../../../../../../lib/auth';
+import db from '../../../../../lib/db';
+import { verifyHost } from '../../../../../lib/auth';
 
 // POST /api/bookings/[id]/extend - Gia hạn trú cho một booking
 export async function POST(req, { params }) {

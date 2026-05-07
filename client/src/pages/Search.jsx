@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import { SkeletonCard } from '../components/Loader';
 export default function Search() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -10,12 +11,14 @@ export default function Search() {
     const [selectedAmenities, setSelectedAmenities] = useState([]);
     const [properties, setProperties] = useState([]);
     const [filteredProperties, setFilteredProperties] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isSearching, setIsSearching] = useState(false);
     const [favoriteIds, setFavoriteIds] = useState([]);
 
     // Fetch properties from backend
     useEffect(() => {
         const fetchProperties = async () => {
+            setLoading(true);
             try {
                 const res = await fetch('/api/properties');
                 if (res.ok) {
@@ -24,6 +27,8 @@ export default function Search() {
                 }
             } catch (error) {
                 console.error('Error fetching properties:', error);
+            } finally {
+                setLoading(false);
             }
         };
         fetchProperties();
@@ -304,11 +309,17 @@ export default function Search() {
                             <div className="mb-8">
                                 <h1 className="text-3xl md:text-4xl font-bold text-neutral-700 dark:text-white mb-2">Kết quả tìm kiếm</h1>
                                 <p className="text-neutral-500 dark:text-neutral-400">
-                                    {isSearching ? 'Đang tìm kiếm...' : `Tìm thấy ${filteredProperties.length} chỗ ở`}
+                                    {loading || isSearching ? 'Đang tìm kiếm...' : `Tìm thấy ${filteredProperties.length} chỗ ở`}
                                 </p>
                             </div>
 
-                            {!isSearching && filteredProperties.length === 0 ? (
+                            {loading ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {[...Array(6)].map((_, i) => (
+                                        <SkeletonCard key={i} />
+                                    ))}
+                                </div>
+                            ) : !isSearching && filteredProperties.length === 0 ? (
                                 <div className="text-center py-20 bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700">
                                     <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 rounded-full">
                                         <span className="material-symbols-outlined text-neutral-400 text-4xl">search_off</span>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../lib/db';
+import db from '../../../lib/db';
 
 // GET: Lấy danh sách coupon (admin)
 // POST: Tạo coupon mới (admin)

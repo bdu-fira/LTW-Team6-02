@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import { FullPageLoader, Spinner } from '../components/Loader';
 
 export default function Details() {
     const { id } = useParams();
@@ -315,7 +316,7 @@ export default function Details() {
         window.dispatchEvent(new Event('favoritesUpdated'));
     };
 
-    if (!property) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    if (!property) return <FullPageLoader message="Đang tải thông tin chỗ ở..." />;
 
     // Price calculations
     const priceString = property.price.replace(/\./g, '').replace(/[₫đ]/g, '');
@@ -786,8 +787,16 @@ export default function Details() {
                                             ) : (
                                                 <button
                                                     onClick={() => handleBookNow(false)}
-                                                    className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90">
-                                                    <span>Đặt ngay</span>
+                                                    disabled={isProcessing}
+                                                    className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 disabled:bg-primary/60 disabled:cursor-not-allowed">
+                                                    {isProcessing ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <Spinner size="sm" color="white" />
+                                                            <span>Đang xử lý...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span>Đặt ngay</span>
+                                                    )}
                                                 </button>
                                             )}
                                             <p className="text-center text-sm text-neutral-500 dark:text-neutral-200">
