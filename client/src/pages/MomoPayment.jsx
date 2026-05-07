@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import api from '../utils/api';
 
 const MomoPayment = () => {
     const { bookingId } = useParams();
@@ -17,19 +18,9 @@ const MomoPayment = () => {
     useEffect(() => {
         const fetchBooking = async () => {
             try {
-                // Fetch from unauthenticated endpoint for QR page
-                const res = await fetch(`/api/bookings/${bookingId}/status`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setBookingData(data);
-                    setStatus(data.status);
-                    if (data.status !== 'pending') {
-                        // Let the regular success screen logic handle it or just set status
-                        setStatus(data.status);
-                    }
-                } else {
-                    console.error('Booking not found');
-                }
+                const res = await api.get(`/api/bookings/${bookingId}/status`);
+                setBookingData(res.data);
+                setStatus(res.data.status);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching booking:', err);
@@ -107,11 +98,7 @@ const MomoPayment = () => {
 
     const handleTimeout = async () => {
         try {
-            await fetch(`/api/bookings/${bookingId}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'cancelled', note: 'Giao dịch quá hạn 15 phút' })
-            });
+            await api.patch(`/api/bookings/${bookingId}/status`, { status: 'cancelled', note: 'Giao dịch quá hạn 15 phút' });
             setStatus('cancelled');
         } catch (err) {
             console.error('Timeout error:', err);
@@ -121,11 +108,7 @@ const MomoPayment = () => {
     const handleCancel = async () => {
         if (window.confirm('Bạn có chắc chắn muốn hủy giao dịch này?')) {
             try {
-                await fetch(`/api/bookings/${bookingId}/status`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'cancelled', note: 'Người dùng chủ động hủy giao dịch' })
-                });
+                await api.patch(`/api/bookings/${bookingId}/status`, { status: 'cancelled', note: 'Người dùng chủ động hủy giao dịch' });
                 navigate('/bookings');
             } catch (err) {
                 console.error('Cancel error:', err);

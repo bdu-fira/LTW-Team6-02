@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 
 const MagicLogin = () => {
     const { code } = useParams();
@@ -14,12 +14,12 @@ const MagicLogin = () => {
         const handleLogin = async () => {
             try {
                 // 1. Resolve short code to JWT token
-                const resolveRes = await axios.get(`/api/auth/resolve-link?code=${code}`);
+                const resolveRes = await api.get(`/api/auth/resolve-link?code=${code}`);
                 const token = resolveRes.data.token;
 
                 // 2. Perform magic login with the actual token
                 setMessage('Xác thực danh tính...');
-                const loginRes = await axios.post('/api/auth/magic-login', { token });
+                const loginRes = await api.post('/api/auth/magic-login', { token });
                 
                 if (loginRes.data.success) {
                     localStorage.setItem('token', loginRes.data.token);

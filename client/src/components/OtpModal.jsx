@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Smartphone, CheckCircle2, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 
 const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -48,7 +48,7 @@ const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('/api/auth/sms-otp', {
+            const res = await api.post('/api/auth/sms-otp', {
                 action: 'verify',
                 phone,
                 code
@@ -69,7 +69,7 @@ const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
     const handleResend = async () => {
         setLoading(true);
         try {
-            await axios.post('/api/auth/sms-otp', {
+            await api.post('/api/auth/sms-otp', {
                 action: 'send',
                 phone
             });

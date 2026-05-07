@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { SkeletonCard } from '../components/Loader';
+import api from '../utils/api';
 export default function Search() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -20,11 +21,8 @@ export default function Search() {
         const fetchProperties = async () => {
             setLoading(true);
             try {
-                const res = await fetch('/api/properties');
-                if (res.ok) {
-                    const data = await res.json();
-                    setProperties(data);
-                }
+                const res = await api.get('/api/properties');
+                setProperties(res.data);
             } catch (error) {
                 console.error('Error fetching properties:', error);
             } finally {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import OtpModal from '../components/OtpModal';
-import axios from 'axios';
+import api from '../utils/api';
 
 export default function Payment() {
     const location = useLocation();
@@ -66,14 +66,9 @@ export default function Payment() {
         const fetchProperties = async () => {
             if (propertyId) {
                 try {
-                    const res = await fetch('/api/properties');
-                    if (res.ok) {
-                        const data = await res.json();
-                        const p = data.find(p => p.id === propertyId);
-                        if (p) {
-                            setProperty(p);
-                        }
-                    }
+                    const res = await api.get('/api/properties');
+                    const p = res.data.find(p => p.id === propertyId);
+                    if (p) setProperty(p);
                 } catch (error) {
                     console.error('Lỗi khi tải thông tin chỗ ở:', error);
                 }
@@ -212,27 +207,22 @@ export default function Payment() {
         }
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/sandbox/payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'initiate',
-                    card_number: cardNumber.trim(),
-                    card_holder: cardHolder.trim(),
-                    expiry_date: cardExpiry.trim(),
-                    cvv: cardCvv.trim(),
-                    amount: total
-                })
+            const res = await api.post('/api/sandbox/payment', {
+                action: 'initiate',
+                card_number: cardNumber.trim(),
+                card_holder: cardHolder.trim(),
+                expiry_date: cardExpiry.trim(),
+                cvv: cardCvv.trim(),
+                amount: total
             });
-            const data = await res.json();
             setIsProcessing(false);
-            if (data.success) {
-                setTransactionId(data.transaction_id);
+            if (res.data.success) {
+                setTransactionId(res.data.transaction_id);
                 setCardStep(2);
                 setOtpCountdown(300);
                 setOtpValues(['', '', '', '', '', '']);
             } else {
-                setCardError(data.message);
+                setCardError(res.data.message);
             }
         } catch (err) {
             setIsProcessing(false);
@@ -250,23 +240,17 @@ export default function Payment() {
         setCardError('');
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/sandbox/payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'confirm',
-                    transaction_id: transactionId,
-                    otp: otpCode
-                })
+            const res = await api.post('/api/sandbox/payment', {
+                action: 'confirm',
+                transaction_id: transactionId,
+                otp: otpCode
             });
-            const data = await res.json();
-            if (data.success) {
-                // Thanh toán thành công → tạo booking
+            if (res.data.success) {
                 setShowCardModal(false);
                 await createBookingAfterPayment();
             } else {
                 setIsProcessing(false);
-                setCardError(data.message);
+                setCardError(res.data.message);
             }
         } catch (err) {
             setIsProcessing(false);
@@ -280,73 +264,52 @@ export default function Payment() {
         const token = localStorage.getItem('token');
         try {
             if (isLoggedIn) {
-                const res = await fetch('/api/user/bookings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        property_id: propertyId,
-                        room_type_id: roomTypeId,
-                        check_in: formatDateForDB(checkInDate),
-                        check_out: formatDateForDB(checkOutDate),
-                        number_of_rooms: 1,
-                        total_price: total,
-                        special_requests: specialRequests || null,
-                        status: status,
-                        payment_method: method,
-                    }),
+                const res = await api.post('/api/user/bookings', {
+                    property_id: propertyId,
+                    room_type_id: roomTypeId,
+                    check_in: formatDateForDB(checkInDate),
+                    check_out: formatDateForDB(checkOutDate),
+                    number_of_rooms: 1,
+                    total_price: total,
+                    special_requests: specialRequests || null,
+                    status: status,
+                    payment_method: method,
                 });
-                const data = await res.json();
                 setIsProcessing(false);
-                if (res.ok) {
-                    if (method === 'momo') {
-                        navigate(`/momo-payment/${data.booking_id}`);
-                    } else {
-                        setBookingId(data.booking_id);
-                        setIsSuccess(true);
-                    }
+                if (method === 'momo') {
+                    navigate(`/momo-payment/${res.data.booking_id}`);
                 } else {
-                    setPaymentError(data.error ? `${data.message} (${data.error})` : data.message || 'Đặt phòng thất bại.');
+                    setBookingId(res.data.booking_id);
+                    setIsSuccess(true);
                 }
             } else {
-                const res = await fetch('/api/guest/bookings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: guestEmail.trim(),
-                        phone: guestPhone.trim(),
-                        guest_name: guestName.trim(),
-                        property_id: propertyId,
-                        room_type_id: roomTypeId,
-                        check_in: formatDateForDB(checkInDate),
-                        check_out: formatDateForDB(checkOutDate),
-                        number_of_rooms: 1,
-                        total_price: total,
-                        special_requests: specialRequests || null,
-                        status: status,
-                        payment_method: method,
-                    }),
+                const res = await api.post('/api/guest/bookings', {
+                    email: guestEmail.trim(),
+                    phone: guestPhone.trim(),
+                    guest_name: guestName.trim(),
+                    property_id: propertyId,
+                    room_type_id: roomTypeId,
+                    check_in: formatDateForDB(checkInDate),
+                    check_out: formatDateForDB(checkOutDate),
+                    number_of_rooms: 1,
+                    total_price: total,
+                    special_requests: specialRequests || null,
+                    status: status,
+                    payment_method: method,
                 });
-                const data = await res.json();
                 setIsProcessing(false);
-                if (res.ok) {
-                    if (method === 'momo' && data.booking_id) {
-                        navigate(`/momo-payment/${data.booking_id}`);
-                        return;
-                    }
-                    if (data.status === 'confirmed' || data.status === 'pending') {
-                        setBookingId(data.booking_id);
-                        setIsSuccess(true);
-                    }
-                } else {
-                    setPaymentError(data.error ? `${data.message} (${data.error})` : data.message || 'Đặt phòng thất bại.');
+                if (method === 'momo' && res.data.booking_id) {
+                    navigate(`/momo-payment/${res.data.booking_id}`);
+                    return;
+                }
+                if (res.data.status === 'confirmed' || res.data.status === 'pending') {
+                    setBookingId(res.data.booking_id);
+                    setIsSuccess(true);
                 }
             }
         } catch (err) {
             setIsProcessing(false);
-            setPaymentError('Lỗi kết nối máy chủ.');
+            setPaymentError(err.response?.data?.message || 'Lỗi kết nối máy chủ.');
         }
     };
 

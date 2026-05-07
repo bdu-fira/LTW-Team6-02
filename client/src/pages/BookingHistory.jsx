@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Header from '../components/Header';
+import api from '../utils/api';
 
 const STATUS_MAP = {
     pending: { label: 'Chờ xác nhận', color: 'bg-yellow-100 text-yellow-700' },
@@ -263,20 +264,14 @@ export default function BookingHistory() {
             setError('');
             try {
                 if (activeTab === 'user') {
-                    const res = await fetch('/api/user/bookings', {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (!res.ok) throw new Error('Không thể tải lịch sử đặt phòng');
-                    setBookings(await res.json());
+                    const res = await api.get('/api/user/bookings');
+                    setBookings(res.data);
                 } else {
-                    const res = await fetch('/api/host/bookings', {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (!res.ok) throw new Error('Không thể tải lịch sử phòng được đặt');
-                    setHostBookings(await res.json());
+                    const res = await api.get('/api/host/bookings');
+                    setHostBookings(res.data);
                 }
             } catch (err) {
-                setError(err.message || 'Lỗi kết nối máy chủ');
+                setError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
             } finally {
                 setLoading(false);
             }
@@ -329,31 +324,16 @@ export default function BookingHistory() {
 
         setIsSubmittingReview(true);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch('/api/reviews', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    property_id: selectedBookingForReview.property_id,
-                    booking_id: selectedBookingForReview.id,
-                    rating: reviewForm.rating,
-                    comment: reviewForm.comment
-                })
+            await api.post('/api/reviews', {
+                property_id: selectedBookingForReview.property_id,
+                booking_id: selectedBookingForReview.id,
+                rating: reviewForm.rating,
+                comment: reviewForm.comment
             });
-            
-            if (res.ok) {
-                alert('Đánh giá thành công! Cảm ơn bạn đã phản hồi.');
-                setReviewModalOpen(false);
-            } else {
-                const data = await res.json();
-                alert(data.message || 'Lỗi khi gửi đánh giá');
-            }
+            alert('Đánh giá thành công! Cảm ơn bạn đã phản hồi.');
+            setReviewModalOpen(false);
         } catch (error) {
-            console.error('Submit review error:', error);
-            alert('Lỗi kết nối, vui lòng thử lại sau');
+            alert(error.response?.data?.message || 'Lỗi kết nối, vui lòng thử lại sau');
         } finally {
             setIsSubmittingReview(false);
         }

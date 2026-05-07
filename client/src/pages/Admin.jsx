@@ -7,6 +7,7 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import api from '../utils/api';
 
 export default function Admin() {
     const navigate = useNavigate();
@@ -180,20 +181,10 @@ export default function Admin() {
         };
     }, [currentUser]);
 
-    const getAuthHeaders = () => ({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-    });
-
     const fetchStats = async () => {
         try {
-            const res = await fetch('/api/admin/stats', {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data);
-            }
+            const res = await api.get('/api/admin/stats');
+            setStats(res.data);
         } catch (err) {
             console.error('Error fetching stats:', err);
         } finally {
@@ -211,14 +202,9 @@ export default function Admin() {
                 search: userSearch,
                 role: userRoleFilter
             });
-            const res = await fetch(`/api/admin/users?${params}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data.users);
-                setUsersPagination(data.pagination);
-            }
+            const res = await api.get(`/api/admin/users?${params}`);
+            setUsers(res.data.users);
+            setUsersPagination(res.data.pagination);
         } catch (err) {
             console.error('Error fetching users:', err);
         } finally {
@@ -236,14 +222,9 @@ export default function Admin() {
                 limit: 10,
                 status: bookingStatusFilter
             });
-            const res = await fetch(`/api/admin/bookings?${params}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setBookings(data.bookings);
-                setBookingsPagination(data.pagination);
-            }
+            const res = await api.get(`/api/admin/bookings?${params}`);
+            setBookings(res.data.bookings);
+            setBookingsPagination(res.data.pagination);
         } catch (err) {
             console.error('Error fetching bookings:', err);
         } finally {
@@ -261,14 +242,9 @@ export default function Admin() {
                 limit: 10,
                 search: propertySearch
             });
-            const res = await fetch(`/api/admin/properties?${params}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setProperties(data.properties);
-                setPropertiesPagination(data.pagination);
-            }
+            const res = await api.get(`/api/admin/properties?${params}`);
+            setProperties(res.data.properties);
+            setPropertiesPagination(res.data.pagination);
         } catch (err) {
             console.error('Error fetching properties:', err);
         } finally {
@@ -286,14 +262,9 @@ export default function Admin() {
                 limit: 20,
                 status: otpStatusFilter
             });
-            const res = await fetch(`/api/admin/otps?${params}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setOtpLogs(data.otpLogs);
-                setOtpPagination(data.pagination);
-            }
+            const res = await api.get(`/api/admin/otps?${params}`);
+            setOtpLogs(res.data.otpLogs);
+            setOtpPagination(res.data.pagination);
         } catch (err) {
             console.error('Error fetching OTP logs:', err);
         } finally {
@@ -308,14 +279,9 @@ export default function Admin() {
                 page: logsPagination.page,
                 limit: 20
             });
-            const res = await fetch(`/api/admin/logs?${params}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setFullLogs(data.logs);
-                setLogsPagination(data.pagination);
-            }
+            const res = await api.get(`/api/admin/logs?${params}`);
+            setFullLogs(res.data.logs);
+            setLogsPagination(res.data.pagination);
         } catch (err) {
             console.error('Error fetching logs:', err);
         }
@@ -324,42 +290,26 @@ export default function Admin() {
     // User CRUD
     const handleSaveUser = async (userData) => {
         try {
-            const url = editingUser
-                ? `/api/admin/users/${editingUser.id}`
-                : '/api/admin/users';
-            const method = editingUser ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: getAuthHeaders(),
-                body: JSON.stringify(userData)
-            });
-
-            if (res.ok) {
-                setShowUserModal(false);
-                setEditingUser(null);
-                fetchUsers();
-                fetchStats();
+            if (editingUser) {
+                await api.put(`/api/admin/users/${editingUser.id}`, userData);
             } else {
-                const data = await res.json();
-                setError(data.message);
+                await api.post('/api/admin/users', userData);
             }
+            setShowUserModal(false);
+            setEditingUser(null);
+            fetchUsers();
+            fetchStats();
         } catch (err) {
-            console.error('Error saving user:', err);
+            setError(err.response?.data?.message || 'Lỗi khi lưu user');
         }
     };
 
     const handleDeleteUser = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn xóa user này?')) return;
         try {
-            const res = await fetch(`/api/admin/users/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                fetchUsers();
-                fetchStats();
-            }
+            await api.delete(`/api/admin/users/${id}`);
+            fetchUsers();
+            fetchStats();
         } catch (err) {
             console.error('Error deleting user:', err);
         }
@@ -368,15 +318,9 @@ export default function Admin() {
     // Booking CRUD
     const handleUpdateBookingStatus = async (id, status) => {
         try {
-            const res = await fetch(`/api/admin/bookings/${id}`, {
-                method: 'PUT',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ status })
-            });
-            if (res.ok) {
-                fetchBookings();
-                fetchStats();
-            }
+            await api.put(`/api/admin/bookings/${id}`, { status });
+            fetchBookings();
+            fetchStats();
         } catch (err) {
             console.error('Error updating booking:', err);
         }
@@ -385,14 +329,9 @@ export default function Admin() {
     const handleCancelBooking = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn hủy booking này?')) return;
         try {
-            const res = await fetch(`/api/admin/bookings/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                fetchBookings();
-                fetchStats();
-            }
+            await api.delete(`/api/admin/bookings/${id}`);
+            fetchBookings();
+            fetchStats();
         } catch (err) {
             console.error('Error cancelling booking:', err);
         }
@@ -401,17 +340,11 @@ export default function Admin() {
     // Property CRUD
     const handleUpdateProperty = async (id, propertyData) => {
         try {
-            const res = await fetch(`/api/admin/properties/${id}`, {
-                method: 'PUT',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(propertyData)
-            });
-            if (res.ok) {
-                setShowPropertyModal(false);
-                setEditingProperty(null);
-                fetchProperties();
-                fetchStats();
-            }
+            await api.put(`/api/admin/properties/${id}`, propertyData);
+            setShowPropertyModal(false);
+            setEditingProperty(null);
+            fetchProperties();
+            fetchStats();
         } catch (err) {
             console.error('Error updating property:', err);
         }
@@ -420,19 +353,11 @@ export default function Admin() {
     const handleDeleteProperty = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn xóa property này?')) return;
         try {
-            const res = await fetch(`/api/admin/properties/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                fetchProperties();
-                fetchStats();
-            } else {
-                const data = await res.json();
-                alert(data.message);
-            }
+            await api.delete(`/api/admin/properties/${id}`);
+            fetchProperties();
+            fetchStats();
         } catch (err) {
-            console.error('Error deleting property:', err);
+            alert(err.response?.data?.message || 'Lỗi khi xóa property');
         }
     };
 

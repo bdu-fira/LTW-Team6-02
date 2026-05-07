@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { FullPageLoader, Spinner } from '../components/Loader';
+import api from '../utils/api';
 
 export default function Details() {
     const { id } = useParams();
@@ -111,22 +112,15 @@ export default function Details() {
         setDateError('');
 
         try {
-            const res = await fetch('/api/check-availability', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    property_id: property.id,
-                    room_type_id: selectedRoomId,
-                    check_in: checkIn,
-                    check_out: checkOut,
-                    number_of_rooms: 1
-                })
+            const res = await api.post('/api/check-availability', {
+                property_id: property.id,
+                room_type_id: selectedRoomId,
+                check_in: checkIn,
+                check_out: checkOut,
+                number_of_rooms: 1
             });
-
-            const data = await res.json();
             setIsProcessing(false);
-
-            if (data.success) {
+            if (res.data.success) {
                 if (isMobile) {
                     setMobileCheckIn(checkIn);
                     setMobileCheckOut(checkOut);
@@ -138,7 +132,7 @@ export default function Details() {
                     navigate(`/payment?id=${property.id}&checkIn=${checkIn}&checkOut=${checkOut}&roomTypeId=${selectedRoomId}`);
                 }
             } else {
-                setDateError(data.message || 'Phòng đã hết trong khoảng thời gian này.');
+                setDateError(res.data.message || 'Phòng đã hết trong khoảng thời gian này.');
             }
         } catch (error) {
             setIsProcessing(false);
@@ -149,16 +143,9 @@ export default function Details() {
     useEffect(() => {
         const fetchProperties = async () => {
             try {
-                const res = await fetch('/api/properties');
-                if (res.ok) {
-                    const data = await res.json();
-                    const p = data.find(p => p.id.toString() === id);
-                    if (p) {
-                        setProperty(p);
-                    } else {
-                        setProperty(data[0]);
-                    }
-                }
+                const res = await api.get('/api/properties');
+                const p = res.data.find(p => p.id.toString() === id);
+                setProperty(p || res.data[0]);
             } catch (error) {
                 console.error('Lỗi khi tải thông tin chỗ ở:', error);
             }
@@ -169,13 +156,10 @@ export default function Details() {
     // Fetch reviews for this property
     const fetchReviews = async () => {
         try {
-            const res = await fetch(`/api/reviews?property_id=${id}`);
-            if (res.ok) {
-                const data = await res.json();
-                setReviews(data.reviews);
-                setAvgRating(data.averageRating);
-                setTotalReviews(data.totalReviews);
-            }
+            const res = await api.get(`/api/reviews?property_id=${id}`);
+            setReviews(res.data.reviews);
+            setAvgRating(res.data.averageRating);
+            setTotalReviews(res.data.totalReviews);
         } catch (error) {
             console.error('Lỗi khi tải đánh giá:', error);
         }
@@ -201,20 +185,14 @@ export default function Details() {
         if (!token || !id) return;
         const fetchUserBookings = async () => {
             try {
-                const res = await fetch('/api/user/bookings', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    // Lọc bookings confirmed cho property này và chưa được review
-                    const reviewedBookingIds = reviews.map(r => r.booking_id);
-                    const available = data.filter(b =>
-                        b.property_id.toString() === id &&
-                        b.status === 'confirmed' &&
-                        !reviewedBookingIds.includes(b.id)
-                    );
-                    setUserBookings(available);
-                }
+                const res = await api.get('/api/user/bookings');
+                const reviewedBookingIds = reviews.map(r => r.booking_id);
+                const available = res.data.filter(b =>
+                    b.property_id.toString() === id &&
+                    b.status === 'confirmed' &&
+                    !reviewedBookingIds.includes(b.id)
+                );
+                setUserBookings(available);
             } catch (error) {
                 console.error('Lỗi khi tải bookings:', error);
             }
@@ -242,30 +220,17 @@ export default function Details() {
 
         setReviewSubmitting(true);
         try {
-            const res = await fetch('/api/reviews', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    property_id: parseInt(id),
-                    booking_id: parseInt(reviewForm.booking_id),
-                    rating: reviewForm.rating,
-                    comment: reviewForm.comment
-                })
+            await api.post('/api/reviews', {
+                property_id: parseInt(id),
+                booking_id: parseInt(reviewForm.booking_id),
+                rating: reviewForm.rating,
+                comment: reviewForm.comment
             });
-
-            const data = await res.json();
-            if (res.ok) {
-                setReviewSuccess('Đánh giá thành công!');
-                setReviewForm({ booking_id: '', rating: 5, comment: '' });
-                fetchReviews(); // Reload reviews
-            } else {
-                setReviewError(data.message || 'Có lỗi xảy ra');
-            }
+            setReviewSuccess('Đánh giá thành công!');
+            setReviewForm({ booking_id: '', rating: 5, comment: '' });
+            fetchReviews();
         } catch (error) {
-            setReviewError('Không thể gửi đánh giá. Vui lòng thử lại.');
+            setReviewError(error.response?.data?.message || 'Có lỗi xảy ra');
         } finally {
             setReviewSubmitting(false);
         }
@@ -1153,24 +1118,17 @@ export default function Details() {
                     setPaymentError('');
                     const roomTypeId = getRoomTypeId();
                     if (isLoggedIn) {
-                        const token = localStorage.getItem('token');
                         try {
-                            const res = await fetch('/api/user/bookings', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                body: JSON.stringify({
-                                    property_id: property.id, room_type_id: roomTypeId,
-                                    check_in: formatDateForDB(new Date(mobileCheckIn)),
-                                    check_out: formatDateForDB(new Date(mobileCheckOut)),
-                                    number_of_rooms: 1, total_price: mFinalTotal,
-                                    special_requests: specialRequests || null,
-                                }),
+                            const res = await api.post('/api/user/bookings', {
+                                property_id: property.id, room_type_id: roomTypeId,
+                                check_in: formatDateForDB(new Date(mobileCheckIn)),
+                                check_out: formatDateForDB(new Date(mobileCheckOut)),
+                                number_of_rooms: 1, total_price: mFinalTotal,
+                                special_requests: specialRequests || null,
                             });
-                            const data = await res.json();
                             setIsProcessing(false);
-                            if (res.ok) { setBookingId(data.booking_id); setIsSuccess(true); }
-                            else { setPaymentError(data.message || 'Đặt phòng thất bại.'); }
-                        } catch { setIsProcessing(false); setPaymentError('Lỗi kết nối máy chủ.'); }
+                            setBookingId(res.data.booking_id); setIsSuccess(true);
+                        } catch (err) { setIsProcessing(false); setPaymentError(err.response?.data?.message || 'Lỗi kết nối máy chủ.'); }
                     } else {
                         if (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()) {
                             setIsProcessing(false); setPaymentError('Vui lòng nhập đầy đủ thông tin.'); return;
@@ -1179,25 +1137,18 @@ export default function Details() {
                             setIsProcessing(false); setPaymentError('Email không hợp lệ.'); return;
                         }
                         try {
-                            const res = await fetch('/api/guest/bookings', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    email: guestEmail.trim(), phone: guestPhone.trim(), guest_name: guestName.trim(),
-                                    property_id: property.id, room_type_id: roomTypeId,
-                                    check_in: formatDateForDB(new Date(mobileCheckIn)),
-                                    check_out: formatDateForDB(new Date(mobileCheckOut)),
-                                    number_of_rooms: 1, total_price: mFinalTotal,
-                                    special_requests: specialRequests || null,
-                                }),
+                            const res = await api.post('/api/guest/bookings', {
+                                email: guestEmail.trim(), phone: guestPhone.trim(), guest_name: guestName.trim(),
+                                property_id: property.id, room_type_id: roomTypeId,
+                                check_in: formatDateForDB(new Date(mobileCheckIn)),
+                                check_out: formatDateForDB(new Date(mobileCheckOut)),
+                                number_of_rooms: 1, total_price: mFinalTotal,
+                                special_requests: specialRequests || null,
                             });
-                            const data = await res.json();
                             setIsProcessing(false);
-                            if (res.ok) {
-                                if (data.status === 'confirmed') { setBookingId(data.booking_id); setIsSuccess(true); }
-                                else if (data.status === 'pending') { navigate(`/booking-alert?email=${encodeURIComponent(guestEmail.trim())}`); }
-                            } else { setPaymentError(data.message || 'Đặt phòng thất bại.'); }
-                        } catch { setIsProcessing(false); setPaymentError('Lỗi kết nối máy chủ.'); }
+                            if (res.data.status === 'confirmed') { setBookingId(res.data.booking_id); setIsSuccess(true); }
+                            else if (res.data.status === 'pending') { navigate(`/booking-alert?email=${encodeURIComponent(guestEmail.trim())}`); }
+                        } catch (err) { setIsProcessing(false); setPaymentError(err.response?.data?.message || 'Lỗi kết nối máy chủ.'); }
                     }
                 };
 

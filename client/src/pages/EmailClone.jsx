@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import api from '../utils/api';
 
 export default function EmailClone() {
     const navigate = useNavigate();
@@ -48,11 +49,8 @@ export default function EmailClone() {
 
     const fetchEmails = async () => {
         try {
-            const res = await fetch('/api/admin/emails');
-            if (res.ok) {
-                const data = await res.json();
-                setEmails(data);
-            }
+            const res = await api.get('/api/admin/emails');
+            setEmails(res.data);
         } catch (err) {
             console.error('Lỗi khi tải emails:', err);
         } finally {
@@ -64,11 +62,7 @@ export default function EmailClone() {
         setSelectedEmail(email);
         if (!email.is_read) {
             try {
-                await fetch('/api/admin/emails', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: email.id, is_read: true })
-                });
+                await api.patch('/api/admin/emails', { id: email.id, is_read: true });
                 setEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: true } : e));
             } catch (err) {
                 console.error('Lỗi khi đánh dấu đã đọc:', err);

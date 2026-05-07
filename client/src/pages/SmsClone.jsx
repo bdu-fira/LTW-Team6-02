@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import axios from 'axios';
+import api from '../utils/api';
 
 const SmsClone = () => {
     const navigate = useNavigate();
@@ -53,10 +53,8 @@ const SmsClone = () => {
     const fetchMessages = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`/api/sms`);
+            const res = await api.get('/api/sms');
             if (res.data.success) {
-                // Reverse to show oldest first in chat flow if needed, 
-                // but usually SMS apps show oldest at top.
                 setMessages(res.data.data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
             }
         } catch (err) {

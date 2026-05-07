@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import api from '../utils/api';
 
 export default function Header() {
     const navigate = useNavigate();
@@ -154,19 +155,14 @@ export default function Header() {
         if (!otpIdentifier.trim()) { setOtpError('Vui lòng nhập số điện thoại hoặc email'); return; }
         setOtpLoading(true); setOtpError('');
         try {
-            const res = await fetch('/api/auth/send-login-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier: otpIdentifier.trim() })
-            });
-            const data = await res.json();
-            if (data.success) {
+            const res = await api.post('/api/auth/send-login-otp', { identifier: otpIdentifier.trim() });
+            if (res.data.success) {
                 setOtpSent(true); setOtpTimer(60); setOtpCanResend(false);
-                setLoginMode('otp'); // Chuyển sang bước OTP
+                setLoginMode('otp');
             } else {
-                setOtpError(data.message);
+                setOtpError(res.data.message);
             }
-        } catch { setOtpError('Lỗi kết nối máy chủ'); }
+        } catch (err) { setOtpError(err.response?.data?.message || 'Lỗi kết nối máy chủ'); }
         finally { setOtpLoading(false); }
     };
 
@@ -189,25 +185,20 @@ export default function Header() {
         if (code.length < 6) { setOtpError('Vui lòng nhập đủ 6 chữ số'); return; }
         setOtpLoading(true); setOtpError('');
         try {
-            const res = await fetch('/api/auth/otp-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier: otpIdentifier.trim(), otp: code })
-            });
-            const data = await res.json();
-            if (data.success) {
-                const user = data.user;
+            const res = await api.post('/api/auth/otp-login', { identifier: otpIdentifier.trim(), otp: code });
+            if (res.data.success) {
+                const user = res.data.user;
                 setCurrentUser(user);
                 localStorage.setItem('currentUser', JSON.stringify(user));
-                localStorage.setItem('token', data.token);
+                localStorage.setItem('token', res.data.token);
                 localStorage.setItem('lastActivity', Date.now().toString());
                 window.dispatchEvent(new Event('userUpdated'));
                 setIsLoginOpen(false);
                 resetOtpLogin();
             } else {
-                setOtpError(data.message);
+                setOtpError(res.data.message);
             }
-        } catch { setOtpError('Lỗi kết nối máy chủ'); }
+        } catch (err) { setOtpError(err.response?.data?.message || 'Lỗi kết nối máy chủ'); }
         finally { setOtpLoading(false); }
     };
 
@@ -216,24 +207,15 @@ export default function Header() {
         setLoginError('');
         setLoginLoading(true);
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: otpIdentifier, password: loginPassword })
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setCurrentUser(data.user);
-                localStorage.setItem('currentUser', JSON.stringify(data.user));
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('lastActivity', Date.now().toString());
-                setIsLoginOpen(false);
-                window.dispatchEvent(new Event('userUpdated'));
-                setLoginPassword('');
-            } else {
-                setLoginError(data.message || 'Tài khoản hoặc mật khẩu không chính xác.');
-            }
-        } catch { setLoginError('Lỗi kết nối máy chủ'); }
+            const res = await api.post('/api/auth/login', { email: otpIdentifier, password: loginPassword });
+            setCurrentUser(res.data.user);
+            localStorage.setItem('currentUser', JSON.stringify(res.data.user));
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('lastActivity', Date.now().toString());
+            setIsLoginOpen(false);
+            window.dispatchEvent(new Event('userUpdated'));
+            setLoginPassword('');
+        } catch (err) { setLoginError(err.response?.data?.message || 'Tài khoản hoặc mật khẩu không chính xác.'); }
         finally { setLoginLoading(false); }
     };
 
@@ -249,34 +231,20 @@ export default function Header() {
 
         setRegLoading(true);
         try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    firstName: regFirstName,
-                    lastName: regLastName,
-                    email: regEmail,
-                    password: regPassword
-                })
+            await api.post('/api/auth/register', {
+                firstName: regFirstName,
+                lastName: regLastName,
+                email: regEmail,
+                password: regPassword
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setRegSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
-                setTimeout(() => {
-                    setIsRegisterOpen(false);
-                    setIsLoginOpen(true);
-                    setRegSuccess('');
-                }, 1500);
-            } else {
-                setRegError(data.message || 'Có lỗi xảy ra.');
-            }
+            setRegSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
+            setTimeout(() => {
+                setIsRegisterOpen(false);
+                setIsLoginOpen(true);
+                setRegSuccess('');
+            }, 1500);
         } catch (error) {
-            console.error('Registration error:', error);
-            setRegError('Lỗi kết nối máy chủ');
+            setRegError(error.response?.data?.message || 'Có lỗi xảy ra.');
         } finally {
             setRegLoading(false);
         }
@@ -314,23 +282,18 @@ export default function Header() {
         if (identifier) {
             setForgotLoading(true);
             try {
-                const res = await fetch('/api/auth/forgot-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: identifier })
-                });
-                const data = await res.json();
+                const res = await api.post('/api/auth/forgot-password', { email: identifier });
                 setForgotLoading(false);
-                if (data.success) {
-                    setForgotTransactionId(data.transaction_id);
+                if (res.data.success) {
+                    setForgotTransactionId(res.data.transaction_id);
                     setForgotStep(2);
                     setForgotCountdown(300);
                 } else {
-                    setForgotError(data.message);
+                    setForgotError(res.data.message);
                 }
-            } catch {
+            } catch (err) {
                 setForgotLoading(false);
-                setForgotError('Lỗi kết nối máy chủ');
+                setForgotError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
             }
         }
     };
@@ -361,24 +324,19 @@ export default function Header() {
         setForgotError('');
         setForgotLoading(true);
         try {
-            const res = await fetch('/api/auth/forgot-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: forgotEmail.trim() })
-            });
-            const data = await res.json();
+            const res = await api.post('/api/auth/forgot-password', { email: forgotEmail.trim() });
             setForgotLoading(false);
-            if (data.success) {
-                setForgotTransactionId(data.transaction_id);
+            if (res.data.success) {
+                setForgotTransactionId(res.data.transaction_id);
                 setForgotStep(2);
                 setForgotCountdown(300);
                 setForgotOtp(['', '', '', '', '', '']);
             } else {
-                setForgotError(data.message);
+                setForgotError(res.data.message);
             }
-        } catch {
+        } catch (err) {
             setForgotLoading(false);
-            setForgotError('Lỗi kết nối máy chủ');
+            setForgotError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
         }
     };
 
@@ -395,25 +353,20 @@ export default function Header() {
 
         setForgotLoading(true);
         try {
-            const res = await fetch('/api/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    transaction_id: forgotTransactionId,
-                    otp: otpCode
-                })
+            const res = await api.post('/api/auth/verify-otp', {
+                transaction_id: forgotTransactionId,
+                otp: otpCode
             });
-            const data = await res.json();
             setForgotLoading(false);
-            if (data.success) {
-                setForgotSuccess(data.message);
+            if (res.data.success) {
+                setForgotSuccess(res.data.message);
                 setForgotStep(3);
             } else {
-                setForgotError(data.message);
+                setForgotError(res.data.message);
             }
-        } catch {
+        } catch (err) {
             setForgotLoading(false);
-            setForgotError('Lỗi kết nối máy chủ');
+            setForgotError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
         }
     };
 
@@ -434,30 +387,25 @@ export default function Header() {
         const otpCode = forgotOtp.join('');
         setForgotLoading(true);
         try {
-            const res = await fetch('/api/auth/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    transaction_id: forgotTransactionId,
-                    otp: otpCode,
-                    new_password: forgotNewPassword
-                })
+            const res = await api.post('/api/auth/reset-password', {
+                transaction_id: forgotTransactionId,
+                otp: otpCode,
+                new_password: forgotNewPassword
             });
-            const data = await res.json();
             setForgotLoading(false);
-            if (data.success) {
-                setForgotSuccess(data.message);
+            if (res.data.success) {
+                setForgotSuccess(res.data.message);
                 setTimeout(() => {
                     setIsForgotOpen(false);
                     setIsLoginOpen(true);
                     setForgotSuccess('');
                 }, 2000);
             } else {
-                setForgotError(data.message);
+                setForgotError(res.data.message);
             }
-        } catch {
+        } catch (err) {
             setForgotLoading(false);
-            setForgotError('Lỗi kết nối máy chủ');
+            setForgotError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
         }
     };
 

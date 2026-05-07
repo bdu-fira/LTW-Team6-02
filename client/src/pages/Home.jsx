@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { SkeletonCard } from '../components/Loader';
+import api from '../utils/api';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -76,12 +77,9 @@ export default function Home() {
     const fetchProperties = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/properties');
-        if (response.ok) {
-          const data = await response.json();
-          setProperties(data);
-          setFeaturedProperties(data.slice(0, 10));
-        }
+        const res = await api.get('/api/properties');
+        setProperties(res.data);
+        setFeaturedProperties(res.data.slice(0, 10));
       } catch (error) {
         console.error('Lỗi khi tải danh sách chỗ ở:', error);
       } finally {

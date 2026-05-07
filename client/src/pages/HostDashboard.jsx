@@ -4,6 +4,7 @@ import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import api from '../utils/api';
 
 export default function HostDashboard() {
     const navigate = useNavigate();
@@ -28,29 +29,17 @@ export default function HostDashboard() {
         fetchData();
     }, [navigate]);
 
-    const getAuthHeaders = () => ({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-    });
+    const getAuthHeaders = () => ({});
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const [propRes, bookRes] = await Promise.all([
-                fetch('/api/host/properties', { headers: getAuthHeaders() }),
-                fetch('/api/host/bookings', { headers: getAuthHeaders() })
+                api.get('/api/host/properties'),
+                api.get('/api/host/bookings')
             ]);
-
-            if (propRes.ok && bookRes.ok) {
-                const propData = await propRes.json();
-                const bookData = await bookRes.json();
-                
-                // Assuming responses are arrays based on standard behavior.
-                setProperties(Array.isArray(propData) ? propData : []);
-                setBookings(Array.isArray(bookData) ? bookData : []);
-            } else {
-                setError('Failed to fetch data');
-            }
+            setProperties(Array.isArray(propRes.data) ? propRes.data : []);
+            setBookings(Array.isArray(bookRes.data) ? bookRes.data : []);
         } catch (err) {
             console.error('Error fetching host data:', err);
             setError('Error fetching data');
@@ -107,22 +96,10 @@ export default function HostDashboard() {
         }
 
         try {
-            const res = await fetch(`/api/bookings/${bookingId}/status`, {
-                method: 'PATCH',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ status: newStatus })
-            });
-
-            if (res.ok) {
-                // Refresh data
-                fetchData();
-            } else {
-                const data = await res.json();
-                alert(data.message || 'Lỗi khi cập nhật trạng thái');
-            }
+            await api.patch(`/api/bookings/${bookingId}/status`, { status: newStatus });
+            fetchData();
         } catch (err) {
-            console.error('Lỗi khi cập nhật trạng thái:', err);
-            alert('Lỗi kết nối máy chủ');
+            alert(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
         }
     };
 
@@ -154,29 +131,18 @@ export default function HostDashboard() {
         }
 
         try {
-            const res = await fetch('/api/host/bookings/walk-in', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    property_id: propertyId,
-                    room_type_id: roomTypeId,
-                    check_in: checkIn,
-                    check_out: checkOut,
-                    number_of_rooms: 1
-                })
+            await api.post('/api/host/bookings/walk-in', {
+                property_id: propertyId,
+                room_type_id: roomTypeId,
+                check_in: checkIn,
+                check_out: checkOut,
+                number_of_rooms: 1
             });
-
-            if (res.ok) {
-                alert('Đã thêm lịch thành công!');
-                setWalkInModal({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
-                fetchData();
-            } else {
-                const data = await res.json();
-                alert(data.message || 'Lỗi khi thêm lịch');
-            }
+            alert('Đã thêm lịch thành công!');
+            setWalkInModal({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
+            fetchData();
         } catch (err) {
-            console.error('Lỗi Thêm lịch:', err);
-            alert('Lỗi kết nối máy chủ');
+            alert(err.response?.data?.message || 'Lỗi khi thêm lịch');
         }
     };
 
@@ -196,22 +162,11 @@ export default function HostDashboard() {
         const newOutStr = currentOut.toISOString().split('T')[0];
 
         try {
-            const res = await fetch(`/api/bookings/${bookingId}/extend`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ new_check_out: newOutStr })
-            });
-
-            if (res.ok) {
-                alert('Gia hạn thành công!');
-                fetchData();
-            } else {
-                const data = await res.json();
-                alert(data.message || 'Lỗi khi gia hạn. Có thể phòng đã có người đặt trước.');
-            }
+            await api.post(`/api/bookings/${bookingId}/extend`, { new_check_out: newOutStr });
+            alert('Gia hạn thành công!');
+            fetchData();
         } catch (err) {
-            console.error('Lỗi Gia hạn:', err);
-            alert('Lỗi kết nối máy chủ');
+            alert(err.response?.data?.message || 'Lỗi khi gia hạn. Có thể phòng đã có người đặt trước.');
         }
     };
 

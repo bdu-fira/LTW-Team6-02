@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 export default function ATM() {
     const navigate = useNavigate();
@@ -48,13 +49,8 @@ export default function ATM() {
 
     const fetchCards = async () => {
         try {
-            const res = await fetch('/api/admin/cards', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setCards(data.cards);
-            }
+            const res = await api.get('/api/admin/cards');
+            if (res.data.cards) setCards(res.data.cards);
         } catch (err) {
             console.error('Error fetching cards:', err);
         }
@@ -62,13 +58,8 @@ export default function ATM() {
 
     const fetchOtps = async () => {
         try {
-            const res = await fetch('/api/admin/otps', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setOtpLogs(data.otpLogs);
-            }
+            const res = await api.get('/api/admin/otps');
+            if (res.data.otpLogs) setOtpLogs(res.data.otpLogs);
         } catch (err) {
             console.error('Error fetching OTPs:', err);
         }
@@ -80,31 +71,20 @@ export default function ATM() {
         setLoading(true);
 
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                if (data.user.role === 'admin') {
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    localStorage.setItem('token', data.token);
-                    setCurrentUser(data.user);
-                    window.dispatchEvent(new Event('userUpdated'));
-                    fetchCards();
-                    fetchOtps();
-                } else {
-                    setError('Truy cập bị từ chối. Bạn không có quyền quản trị.');
-                }
+            const res = await api.post('/api/auth/login', { email, password });
+            const data = res.data;
+            if (data.user.role === 'admin') {
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                localStorage.setItem('token', data.token);
+                setCurrentUser(data.user);
+                window.dispatchEvent(new Event('userUpdated'));
+                fetchCards();
+                fetchOtps();
             } else {
-                setError(data.message || 'Email hoặc mật khẩu không chính xác.');
+                setError('Truy cập bị từ chối. Bạn không có quyền quản trị.');
             }
         } catch (err) {
-            console.error('Login error:', err);
-            setError('Lỗi kết nối máy chủ');
+            setError(err.response?.data?.message || 'Email hoặc mật khẩu không chính xác.');
         } finally {
             setLoading(false);
         }
@@ -114,38 +94,17 @@ export default function ATM() {
         e.preventDefault();
         setLoading(true);
         try {
-            const url = editingCard 
-                ? `/api/admin/cards/${editingCard.id}`
-                : '/api/admin/cards';
-            const method = editingCard ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(cardFormData)
-            });
-
-            if (res.ok) {
-                setIsCardModalOpen(false);
-                setEditingCard(null);
-                setCardFormData({
-                    card_number: '',
-                    card_holder: '',
-                    expiry_date: '',
-                    cvv: '',
-                    balance: 10000000,
-                    bank_name: 'Vietcombank'
-                });
-                fetchCards();
+            if (editingCard) {
+                await api.put(`/api/admin/cards/${editingCard.id}`, cardFormData);
             } else {
-                const data = await res.json();
-                alert(data.message);
+                await api.post('/api/admin/cards', cardFormData);
             }
+            setIsCardModalOpen(false);
+            setEditingCard(null);
+            setCardFormData({ card_number: '', card_holder: '', expiry_date: '', cvv: '', balance: 10000000, bank_name: 'Vietcombank' });
+            fetchCards();
         } catch (err) {
-            console.error('Error saving card:', err);
+            alert(err.response?.data?.message || 'Lỗi khi lưu thẻ');
         } finally {
             setLoading(false);
         }
@@ -154,11 +113,8 @@ export default function ATM() {
     const handleDeleteCard = async (id) => {
         if (!window.confirm('Bạn có chắc chắn muốn xóa thẻ này?')) return;
         try {
-            const res = await fetch(`/api/admin/cards/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (res.ok) fetchCards();
+            await api.delete(`/api/admin/cards/${id}`);
+            fetchCards();
         } catch (err) {
             console.error('Error deleting card:', err);
         }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 
 const SetupPassword = () => {
     const navigate = useNavigate();
@@ -41,12 +41,7 @@ const SetupPassword = () => {
         setError('');
 
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('/api/auth/update-password', {
-                password
-            }, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await api.post('/api/auth/update-password', { password });
 
             if (res.data.success) {
                 // Success! Redirect to home or profile

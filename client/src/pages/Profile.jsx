@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
+import api from '../utils/api';
 
 export default function Profile() {
     const navigate = useNavigate();
@@ -79,35 +80,17 @@ export default function Profile() {
         }
 
         try {
-            const response = await fetch('/api/user/profile', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ name, phone, avatarBase64 })
-            });
+            const res = await api.put('/api/user/profile', { name, phone, avatarBase64 });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                // Thành công
-                setMessage('Cập nhật thông tin thành công!');
-                setUser(data.user);
-                // Cập nhật lại local storage để App và Header nhận diện
-                localStorage.setItem('currentUser', JSON.stringify(data.user));
-
-                // Kích phát sự kiện cho component Header tự động reload
-                window.dispatchEvent(new Event('userUpdated'));
-                
-                // Auto hide success message after 3s
-                setTimeout(() => setMessage(''), 3000);
-            } else {
-                setError(data.message || 'Có lỗi xảy ra, vui lòng thử lại.');
-            }
+            // Thành công
+            setMessage('Cập nhật thông tin thành công!');
+            setUser(res.data.user);
+            // Cập nhật lại local storage để App và Header nhận diện
+            localStorage.setItem('currentUser', JSON.stringify(res.data.user));
+            window.dispatchEvent(new Event('userUpdated'));
+            setTimeout(() => setMessage(''), 3000);
         } catch (err) {
-            console.error('Lỗi khi cập nhật:', err);
-            setError('Lỗi kết nối đến máy chủ.');
+            setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
         } finally {
             setLoading(false);
         }

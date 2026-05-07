@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import api from './utils/api';
 import Home from './pages/Home';
 import Details from './pages/Details';
 import Profile from './pages/Profile';
@@ -22,13 +23,9 @@ function RouteTracker() {
     const trackVisit = async () => {
       try {
         const user = JSON.parse(localStorage.getItem('currentUser'));
-        await fetch('/api/tracking/visit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            page_path: location.pathname,
-            user_id: user ? user.id : null
-          })
+        await api.post('/api/tracking/visit', {
+          page_path: location.pathname,
+          user_id: user ? user.id : null
         });
       } catch (err) {
         // Silent error
