@@ -280,7 +280,7 @@ export default function BookingHistory() {
         fetchData();
 
         // Initialize Socket.IO connection
-        const socket = io('/', {
+        const socket = io(import.meta.env.VITE_API_URL || '/', {
             auth: { token },
         });
         socketRef.current = socket;

@@ -33,8 +33,7 @@ const MomoPayment = () => {
 
     // Socket.io connection
     useEffect(() => {
-        console.log('Initializing socket connection to:', window.location.origin);
-        socketRef.current = io(window.location.origin, {
+        socketRef.current = io(import.meta.env.VITE_API_URL || '/', {
             reconnectionAttempts: 5,
             timeout: 10000,
         });
