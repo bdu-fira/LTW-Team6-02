@@ -31,7 +31,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('lastActivity');
       window.dispatchEvent(new Event('userUpdated'));
-      
+
       // Dispatch an event so components like Header can show the login modal
       window.dispatchEvent(new CustomEvent('openLoginModal', {
         detail: { message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' }

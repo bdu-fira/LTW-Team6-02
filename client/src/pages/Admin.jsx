@@ -93,7 +93,7 @@ export default function Admin() {
         }
         setCurrentUser(user);
         fetchStats();
-        
+
         return () => clearTimeout(timer);
     }, [navigate]);
 
@@ -797,8 +797,8 @@ export default function Admin() {
                                             <td className="py-3 px-4">{user.email}</td>
                                             <td className="py-3 px-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                                                        user.role === 'host' ? 'bg-purple-100 text-purple-800' :
-                                                            'bg-blue-100 text-blue-800'
+                                                    user.role === 'host' ? 'bg-purple-100 text-purple-800' :
+                                                        'bg-blue-100 text-blue-800'
                                                     }`}>
                                                     {user.role}
                                                 </span>
@@ -1125,8 +1125,8 @@ export default function Admin() {
                                             <td className="py-3 px-4">{formatPrice(log.amount)}</td>
                                             <td className="py-3 px-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                        log.status === 'USED' ? 'bg-green-100 text-green-800' :
-                                                            'bg-red-100 text-red-800'
+                                                    log.status === 'USED' ? 'bg-green-100 text-green-800' :
+                                                        'bg-red-100 text-red-800'
                                                     }`}>
                                                     {log.status === 'PENDING' ? '⏳ Chờ xác nhận' : log.status === 'USED' ? '✅ Đã dùng' : '❌ Hết hạn'}
                                                 </span>
