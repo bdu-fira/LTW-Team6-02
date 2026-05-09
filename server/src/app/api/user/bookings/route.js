@@ -202,7 +202,8 @@ export async function POST(req) {
                 }, jwtSecret, { expiresIn: '24h' });
                 const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
                 await db.execute('INSERT INTO magic_links (code, token) VALUES (?, ?)', [shortCode, magicToken]);
-                const magicLink = `http://localhost:5173/l/${shortCode}`;
+                const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+                const magicLink = `${baseUrl}/l/${shortCode}`;
 
                 // 2. Gửi SMS
                 if (user.phone) {

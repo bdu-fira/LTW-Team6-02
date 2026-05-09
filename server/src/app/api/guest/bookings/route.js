@@ -113,7 +113,8 @@ export async function POST(req) {
                 
                 await connection.commit();
 
-                const magicLink = `http://localhost:5173/l/${shortCode}`;
+                const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+                const magicLink = `${baseUrl}/l/${shortCode}`;
 
                 const isConfirmed = finalStatus === 'confirmed';
                 if (isConfirmed) {
@@ -219,11 +220,12 @@ export async function POST(req) {
 
                 await connection.commit();
 
-                const magicLink = `http://localhost:5173/l/${shortCode}`;
+                const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+                const magicLink = `${baseUrl}/l/${shortCode}`;
 
                 const isConfirmed = finalStatus === 'confirmed';
                 if (isConfirmed) {
-                    const smsSuccessMsg = `[Aoklevart] Dat phong #${bookingId} thanh cong! Xem chi tiet va thiet lap mat khau tai day: http://localhost:5173/l/${shortCode}`;
+                    const smsSuccessMsg = `[Aoklevart] Dat phong #${bookingId} thanh cong! Xem chi tiet va thiet lap mat khau tai day: ${magicLink}`;
                     await sendVirtualSMS(cleanPhone, smsSuccessMsg);
                 }
 

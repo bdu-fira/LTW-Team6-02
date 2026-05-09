@@ -47,7 +47,8 @@ export async function PUT(req) {
                 }
 
                 fs.writeFileSync(path.join(uploadDir, fileName), imageBuffer);
-                avatarUrl = `http://localhost:3000/uploads/${fileName}`;
+                const apiUrl = process.env.API_URL || 'http://localhost:3000';
+                avatarUrl = `${apiUrl}/uploads/${fileName}`;
             }
         }
 
