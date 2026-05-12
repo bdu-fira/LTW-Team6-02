@@ -7,19 +7,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://web-du-lich-4pjb.onrender.com',
+        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app/',
         changeOrigin: true,
         secure: false,
-        // THÊM ĐOẠN NÀY:
-
       },
       '/socket.io': {
-        target: 'https://web-du-lich-4pjb.onrender.com',
+        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app/',
         changeOrigin: true,
         secure: false,
         ws: true,
-        // THÊM ĐOẠN NÀY:
-
       },
     },
   },
