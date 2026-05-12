@@ -27,17 +27,23 @@ export default function ATM() {
 
     useEffect(() => {
         const checkAuth = () => {
-            const storedUser = localStorage.getItem('currentUser');
-            if (storedUser) {
-                const user = JSON.parse(storedUser);
-                if (user.role === 'admin') {
-                    setCurrentUser(user);
-                    fetchCards();
-                    fetchOtps();
+            try {
+                const storedUser = localStorage.getItem('currentUser');
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user && user.role === 'admin') {
+                        setCurrentUser(user);
+                        fetchCards();
+                        fetchOtps();
+                    } else {
+                        setCurrentUser(null);
+                    }
                 } else {
                     setCurrentUser(null);
                 }
-            } else {
+            } catch (err) {
+                console.error('Error parsing stored user:', err);
+                localStorage.removeItem('currentUser');
                 setCurrentUser(null);
             }
             setCheckingAuth(false);
@@ -50,16 +56,21 @@ export default function ATM() {
     const fetchCards = async () => {
         try {
             const res = await api.get('/api/admin/cards');
-            if (res.data.cards) setCards(res.data.cards);
+            if (res.data && res.data.cards) {
+                setCards(res.data.cards);
+            }
         } catch (err) {
             console.error('Error fetching cards:', err);
+            // Optional: alert('Không thể kết nối đến máy chủ để lấy danh sách thẻ');
         }
     };
 
     const fetchOtps = async () => {
         try {
             const res = await api.get('/api/admin/otps');
-            if (res.data.otpLogs) setOtpLogs(res.data.otpLogs);
+            if (res.data && res.data.otpLogs) {
+                setOtpLogs(res.data.otpLogs);
+            }
         } catch (err) {
             console.error('Error fetching OTPs:', err);
         }
@@ -369,7 +380,7 @@ export default function ATM() {
                                             {log.status}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-white/40 mb-3">Card: .... {log.card_number.slice(-4)}</p>
+                                    <p className="text-xs text-white/40 mb-3">Card: .... {log.card_number ? log.card_number.slice(-4) : '####'}</p>
                                     <div className="flex justify-between items-center">
                                         <p className="text-lg font-mono font-bold text-blue-400">{log.otp_code}</p>
                                         <p className="text-sm font-bold text-white/80">{formatPrice(log.amount)}</p>

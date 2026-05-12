@@ -37,7 +37,7 @@ export async function GET(req) {
             WHERE ${whereClause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-        `, [...params, String(limit), String(offset)]);
+        `, [...params, limit, offset]);
 
         return NextResponse.json({
             otpLogs,

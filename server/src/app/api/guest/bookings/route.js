@@ -113,7 +113,9 @@ export async function POST(req) {
                 
                 await connection.commit();
 
-                const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+                const origin = req.headers.get('origin');
+                const referer = req.headers.get('referer');
+                const baseUrl = origin || (referer ? new URL(referer).origin : null) || process.env.BASE_URL || 'http://localhost:5173';
                 const magicLink = `${baseUrl}/l/${shortCode}`;
 
                 const isConfirmed = finalStatus === 'confirmed';
@@ -220,7 +222,9 @@ export async function POST(req) {
 
                 await connection.commit();
 
-                const baseUrl = process.env.BASE_URL || 'http://localhost:5173';
+                const origin = req.headers.get('origin');
+                const referer = req.headers.get('referer');
+                const baseUrl = origin || (referer ? new URL(referer).origin : null) || process.env.BASE_URL || 'http://localhost:5173';
                 const magicLink = `${baseUrl}/l/${shortCode}`;
 
                 const isConfirmed = finalStatus === 'confirmed';

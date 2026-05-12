@@ -40,7 +40,7 @@ export async function GET(req) {
         // Get users
         const [users] = await db.execute(
             `SELECT id, name, email, avatar, role, phone, created_at FROM users WHERE ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-            [...params, String(limit), String(offset)]
+            [...params, limit, offset]
         );
 
         return NextResponse.json({
