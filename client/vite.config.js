@@ -7,15 +7,21 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app/',
+        target: 'https://dynamic-reanalyze-hankie.ngrok-free.dev',
         changeOrigin: true,
         secure: false,
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
       },
       '/socket.io': {
-        target: 'https://troubled-ilse-dnl-b07c8b63.koyeb.app/',
+        target: 'https://dynamic-reanalyze-hankie.ngrok-free.dev',
         changeOrigin: true,
         secure: false,
         ws: true,
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
       },
     },
   },
