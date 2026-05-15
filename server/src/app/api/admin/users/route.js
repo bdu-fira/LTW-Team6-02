@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { verifyAdmin } from '../../../../lib/auth';
 import db from '../../../../lib/db';
+import { logActivity } from '../../../../lib/logger';
+
 
 export async function GET(req) {
     try {
@@ -98,10 +100,14 @@ export async function POST(req) {
             [result.insertId]
         );
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Thêm User mới', `Admin đã tạo người dùng mới: ${name} (${email}) với role ${role || 'customer'}`, ip_address);
+
         return NextResponse.json({
             message: 'Tạo user thành công',
             user: users[0]
         }, { status: 201 });
+
     } catch (err) {
         console.error('Lỗi khi tạo user:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '../../../../../lib/auth';
 import db from '../../../../../lib/db';
+import { logActivity } from '../../../../../lib/logger';
+
 
 export async function GET(req, { params }) {
     try {
@@ -130,10 +132,14 @@ export async function PUT(req, { params }) {
         // Get updated property
         const [properties] = await db.execute('SELECT * FROM properties WHERE id = ?', [id]);
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Cập nhật Property', `Admin đã cập nhật thông tin Property #${id} (${properties[0].name})`, ip_address);
+
         return NextResponse.json({
             message: 'Cập nhật property thành công',
             property: properties[0]
         });
+
     } catch (err) {
         console.error('Lỗi khi cập nhật property:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });
@@ -178,7 +184,11 @@ export async function DELETE(req, { params }) {
         // Delete property
         await db.execute('DELETE FROM properties WHERE id = ?', [id]);
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Xóa Property', `Admin đã xóa Property #${id} (${existingProperties[0].name})`, ip_address);
+
         return NextResponse.json({ message: 'Xóa property thành công' });
+
     } catch (err) {
         console.error('Lỗi khi xóa property:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import db from '../../../../lib/db';
+import { logActivity } from '../../../../lib/logger';
 
 export async function POST(req) {
     try {
         const body = await req.json();
         const { firstName, lastName, email, password } = body;
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
 
         // Validation
         if (!firstName || !lastName || !email || !password) {
@@ -31,6 +33,11 @@ export async function POST(req) {
             'INSERT INTO users (name, email, password, avatar, role) VALUES (?, ?, ?, ?, ?)',
             [fullName, email, passwordHash, defaultAvatar, 'customer']
         );
+
+        const newUserId = userResult.insertId;
+
+        // Log registration
+        await logActivity(newUserId, 'Đăng ký tài khoản', `Người dùng ${fullName} (${email}) đã đăng ký thành công`, ip_address);
 
         return NextResponse.json({ message: 'Đăng ký thành công! Vui lòng đăng nhập.' }, { status: 201 });
 

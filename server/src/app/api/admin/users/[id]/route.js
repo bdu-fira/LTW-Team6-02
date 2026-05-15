@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { verifyAdmin } from '../../../../../lib/auth';
 import db from '../../../../../lib/db';
+import { logActivity } from '../../../../../lib/logger';
+
 
 export async function GET(req, { params }) {
     try {
@@ -99,10 +101,14 @@ export async function PUT(req, { params }) {
             [id]
         );
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Cập nhật User', `Admin đã cập nhật thông tin người dùng ID #${id} (${users[0].email})`, ip_address);
+
         return NextResponse.json({
             message: 'Cập nhật user thành công',
             user: users[0]
         });
+
     } catch (err) {
         console.error('Lỗi khi cập nhật user:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });
@@ -133,7 +139,11 @@ export async function DELETE(req, { params }) {
         // Delete user
         await db.execute('DELETE FROM users WHERE id = ?', [id]);
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Xóa User', `Admin đã xóa người dùng ID #${id} (${existingUsers[0].email})`, ip_address);
+
         return NextResponse.json({ message: 'Xóa user thành công' });
+
     } catch (err) {
         console.error('Lỗi khi xóa user:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });

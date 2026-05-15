@@ -3,6 +3,8 @@ import { verifyAdmin } from '../../../../../lib/auth';
 import db from '../../../../../lib/db';
 import { sendVirtualSMS } from '../../../../../lib/sms';
 import { sendVirtualEmail } from '../../../../../lib/email';
+import { logActivity } from '../../../../../lib/logger';
+
 
 export async function GET(req, { params }) {
     try {
@@ -213,10 +215,14 @@ export async function PUT(req, { params }) {
             });
         }
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Cập nhật Booking', `Admin đã cập nhật trạng thái Booking #${id} sang ${status || oldStatus}`, ip_address);
+
         return NextResponse.json({
             message: 'Cập nhật booking thành công',
             booking: updatedBooking
         });
+
     } catch (err) {
         console.error('Lỗi khi cập nhật booking:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });
@@ -274,7 +280,11 @@ export async function DELETE(req, { params }) {
             });
         }
 
+        const ip_address = req.headers.get('x-forwarded-for') || req.ip || 'unknown';
+        await logActivity(authResult.userId, 'Hủy Booking', `Admin đã hủy Booking #${id}`, ip_address);
+
         return NextResponse.json({ message: 'Hủy booking thành công' });
+
     } catch (err) {
         console.error('Lỗi khi hủy booking:', err);
         return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });
