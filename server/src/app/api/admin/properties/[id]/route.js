@@ -12,7 +12,7 @@ export async function GET(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         // Get property details
         const [properties] = await db.execute(`
@@ -75,7 +75,7 @@ export async function PUT(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
         const body = await req.json();
         const { name, type, location, description, price_display, is_hot, status } = body;
 
@@ -154,7 +154,7 @@ export async function DELETE(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         // Check if property exists
         const [existingProperties] = await db.execute('SELECT * FROM properties WHERE id = ?', [id]);

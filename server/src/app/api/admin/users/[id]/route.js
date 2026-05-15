@@ -13,7 +13,7 @@ export async function GET(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         const [users] = await db.execute(
             'SELECT id, name, email, avatar, role, phone, created_at FROM users WHERE id = ?',
@@ -39,7 +39,7 @@ export async function PUT(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
         const body = await req.json();
         const { name, email, role, phone, password } = body;
 
@@ -123,7 +123,7 @@ export async function DELETE(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         // Prevent deleting self
         if (parseInt(id) === authResult.userId) {
