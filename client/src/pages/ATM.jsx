@@ -13,7 +13,6 @@ export default function ATM() {
 
     // Card management state
     const [cards, setCards] = useState([]);
-    const [otpLogs, setOtpLogs] = useState([]);
     const [isCardModalOpen, setIsCardModalOpen] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
     const [cardFormData, setCardFormData] = useState({
@@ -21,6 +20,7 @@ export default function ATM() {
         card_holder: '',
         expiry_date: '',
         cvv: '',
+        phone_number: '',
         balance: 10000000,
         bank_name: 'Vietcombank'
     });
@@ -34,7 +34,6 @@ export default function ATM() {
                     if (user && user.role === 'admin') {
                         setCurrentUser(user);
                         fetchCards();
-                        fetchOtps();
                     } else {
                         setCurrentUser(null);
                     }
@@ -65,16 +64,6 @@ export default function ATM() {
         }
     };
 
-    const fetchOtps = async () => {
-        try {
-            const res = await api.get('/api/admin/otps');
-            if (res.data && res.data.otpLogs) {
-                setOtpLogs(res.data.otpLogs);
-            }
-        } catch (err) {
-            console.error('Error fetching OTPs:', err);
-        }
-    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -90,7 +79,6 @@ export default function ATM() {
                 setCurrentUser(data.user);
                 window.dispatchEvent(new Event('userUpdated'));
                 fetchCards();
-                fetchOtps();
             } else {
                 setError('Truy cập bị từ chối. Bạn không có quyền quản trị.');
             }
@@ -112,7 +100,7 @@ export default function ATM() {
             }
             setIsCardModalOpen(false);
             setEditingCard(null);
-            setCardFormData({ card_number: '', card_holder: '', expiry_date: '', cvv: '', balance: 10000000, bank_name: 'Vietcombank' });
+            setCardFormData({ card_number: '', card_holder: '', expiry_date: '', cvv: '', phone_number: '', balance: 10000000, bank_name: 'Vietcombank' });
             fetchCards();
         } catch (err) {
             alert(err.response?.data?.message || 'Lỗi khi lưu thẻ');
@@ -247,6 +235,7 @@ export default function ATM() {
                                 card_holder: '',
                                 expiry_date: '',
                                 cvv: '',
+                                phone_number: '',
                                 balance: 10000000,
                                 bank_name: 'Vietcombank'
                             });
@@ -278,69 +267,117 @@ export default function ATM() {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 p-10 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <main className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full">
                 
-                {/* Left Side: Card List */}
-                <div className="lg:col-span-2 space-y-8">
+                {/* Dashboard Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 animate-fade-in">
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex items-center gap-5">
+                        <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center">
+                            <span className="material-symbols-outlined text-blue-500 text-3xl">credit_card</span>
+                        </div>
+                        <div>
+                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total Cards</p>
+                            <p className="text-2xl font-black text-white">{cards.length}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex items-center gap-5">
+                        <div className="w-14 h-14 bg-green-500/20 rounded-2xl flex items-center justify-center">
+                            <span className="material-symbols-outlined text-green-500 text-3xl">account_balance_wallet</span>
+                        </div>
+                        <div>
+                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total Liquidity</p>
+                            <p className="text-2xl font-black text-white truncate max-w-[150px]">{formatPrice(cards.reduce((acc, card) => acc + Number(card.balance), 0))}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex items-center gap-5">
+                        <div className="w-14 h-14 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                            <span className="material-symbols-outlined text-purple-500 text-3xl">verified_user</span>
+                        </div>
+                        <div>
+                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Security Status</p>
+                            <p className="text-2xl font-black text-green-400">Secure</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h3 className="text-2xl font-bold flex items-center gap-3">
-                            <span className="material-symbols-outlined text-blue-500">list_alt</span>
-                            Danh sách thẻ Sandbox
+                            <span className="material-symbols-outlined text-blue-500">dashboard_customize</span>
+                            Quản lý thẻ Sandbox
                         </h3>
-                        <span className="text-xs px-3 py-1 bg-blue-500/10 text-blue-400 font-bold rounded-full border border-blue-500/20 uppercase tracking-widest">
-                            {cards.length} Cards Active
-                        </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {cards.map((card) => (
-                            <div key={card.id} className="group relative bg-white/5 border border-white/10 rounded-[2rem] p-6 hover:border-blue-500/30 transition-all duration-300">
+                            <div key={card.id} className="group relative bg-white/5 border border-white/10 rounded-[2.5rem] p-6 hover:bg-white/[0.08] hover:border-blue-500/30 transition-all duration-500 hover:-translate-y-2">
                                 {/* Visual Card Representation */}
-                                <div className="aspect-[1.6/1] bg-gradient-to-br from-[#1e293b] to-[#0f172a] rounded-2xl p-6 relative overflow-hidden mb-6 border border-white/5 shadow-2xl">
-                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 blur-3xl rounded-full"></div>
+                                <div className={`aspect-[1.6/1] rounded-2xl p-6 relative overflow-hidden mb-6 shadow-2xl transition-all duration-500 group-hover:scale-[1.02] ${
+                                    card.bank_name === 'MB Bank' ? 'bg-gradient-to-br from-[#003C71] to-[#005AA0]' :
+                                    card.bank_name === 'Vietcombank' ? 'bg-gradient-to-br from-[#006A33] to-[#71BF44]' :
+                                    card.bank_name === 'Techcombank' ? 'bg-gradient-to-br from-[#E31837] to-[#8B0000]' :
+                                    'bg-gradient-to-br from-[#1e293b] to-[#0f172a]'
+                                }`}>
+                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 blur-3xl rounded-full"></div>
                                     <div className="flex justify-between items-start">
-                                        <div className="w-12 h-10 bg-gradient-to-br from-yellow-400/80 to-yellow-600/80 rounded-md"></div>
-                                        <span className="text-sm font-bold tracking-widest text-white/40 italic">{card.bank_name}</span>
+                                        <div className="w-12 h-10 bg-gradient-to-br from-yellow-400/80 to-yellow-600/80 rounded-md shadow-inner">
+                                            <div className="w-full h-full border border-black/10 rounded-md opacity-30"></div>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-sm font-black tracking-tighter text-white italic opacity-80">{card.bank_name}</span>
+                                            <span className="text-[8px] uppercase tracking-widest text-white/40">Platinum Business</span>
+                                        </div>
                                     </div>
                                     <div className="mt-8">
-                                        <p className="text-xl font-mono tracking-widest text-white leading-none">
+                                        <p className="text-xl font-mono tracking-[0.2em] text-white drop-shadow-lg">
                                             {card.card_number.replace(/\d{4}(?=\d)/g, '$& ')}
                                         </p>
                                     </div>
                                     <div className="mt-8 flex justify-between items-end">
                                         <div>
-                                            <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Card Holder</p>
-                                            <p className="text-sm font-bold uppercase tracking-tight">{card.card_holder}</p>
+                                            <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Card Holder</p>
+                                            <p className="text-sm font-bold uppercase tracking-tight text-white">{card.card_holder}</p>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Expires</p>
-                                            <p className="text-sm font-bold">{card.expiry_date}</p>
+                                            <p className="text-[9px] uppercase tracking-widest text-white/40 mb-1">Expires</p>
+                                            <p className="text-sm font-bold text-white">{card.expiry_date}</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Controls */}
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="text-xs text-white/40 mb-1">Số dư khả dụng</p>
-                                        <p className="text-lg font-bold text-green-400">{formatPrice(card.balance)}</p>
+                                {/* Card Data/Actions */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-blue-500 text-sm">phone_iphone</span>
+                                            </div>
+                                            <span className="text-sm font-mono text-white/80">{card.phone_number}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Balance</p>
+                                            <p className="text-lg font-black text-green-400">{formatPrice(card.balance)}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
+
+                                    <div className="flex gap-3">
                                         <button 
                                             onClick={() => {
                                                 setEditingCard(card);
                                                 setCardFormData(card);
                                                 setIsCardModalOpen(true);
                                             }}
-                                            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 rounded-xl transition-all"
+                                            className="flex-1 h-12 flex items-center justify-center gap-2 bg-white/5 hover:bg-blue-500/20 text-white/60 hover:text-blue-400 rounded-2xl border border-white/10 transition-all font-bold text-sm"
                                         >
-                                            <span className="material-symbols-outlined text-xl">edit</span>
+                                            <span className="material-symbols-outlined text-lg">edit</span>
+                                            Chỉnh sửa
                                         </button>
                                         <button 
                                             onClick={() => handleDeleteCard(card.id)}
-                                            className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-red-500/20 hover:text-red-400 rounded-xl transition-all"
+                                            className="w-12 h-12 flex items-center justify-center bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 rounded-2xl border border-white/10 transition-all"
+                                            title="Xóa thẻ"
                                         >
-                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                            <span className="material-symbols-outlined text-lg">delete</span>
                                         </button>
                                     </div>
                                 </div>
@@ -348,52 +385,17 @@ export default function ATM() {
                         ))}
 
                         {cards.length === 0 && (
-                            <div className="col-span-full py-20 bg-white/5 border border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center text-white/20">
-                                <span className="material-symbols-outlined text-6xl mb-4">credit_card_off</span>
-                                <p className="font-bold">Chưa có thẻ nào được cấp</p>
-                                <button onClick={() => setIsCardModalOpen(true)} className="mt-4 text-blue-500 hover:underline text-sm font-bold">Cấp thẻ ngay</button>
+                            <div className="col-span-full py-24 bg-white/5 border border-dashed border-white/10 rounded-[3rem] flex flex-col items-center justify-center text-white/20">
+                                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                                    <span className="material-symbols-outlined text-6xl">credit_card_off</span>
+                                </div>
+                                <p className="text-xl font-bold">Chưa có thẻ nào được cấp</p>
+                                <button onClick={() => setIsCardModalOpen(true)} className="mt-4 px-8 py-3 bg-blue-500 text-white rounded-full font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20">Cấp thẻ ngay</button>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Right Side: Activity/OTPs */}
-                <div className="space-y-8">
-                    <h3 className="text-2xl font-bold flex items-center gap-3">
-                        <span className="material-symbols-outlined text-purple-500">history</span>
-                        Recent OTP Logs
-                    </h3>
-
-                    <div className="bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden">
-                        <div className="p-6 border-b border-white/5">
-                            <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Live Monitoring</p>
-                        </div>
-                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                            {otpLogs.map((log) => (
-                                <div key={log.id} className="p-6 border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${log.status === 'PENDING' ? 'bg-yellow-500 animate-pulse' : log.status === 'USED' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                            <span className="text-sm font-bold tracking-tight">{log.transaction_id}</span>
-                                        </div>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${log.status === 'PENDING' ? 'bg-yellow-500/10 text-yellow-500' : log.status === 'USED' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            {log.status}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-white/40 mb-3">Card: .... {log.card_number ? log.card_number.slice(-4) : '####'}</p>
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-lg font-mono font-bold text-blue-400">{log.otp_code}</p>
-                                        <p className="text-sm font-bold text-white/80">{formatPrice(log.amount)}</p>
-                                    </div>
-                                    <p className="text-[10px] text-white/20 mt-3">{new Date(log.created_at).toLocaleString('vi-VN')}</p>
-                                </div>
-                            ))}
-                            {otpLogs.length === 0 && (
-                                <div className="p-20 text-center text-white/20 italic text-sm">Chưa có giao dịch nào</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
             </main>
 
             {/* Modal for Add/Edit Card */}
@@ -455,6 +457,17 @@ export default function ATM() {
                                         onChange={(e) => setCardFormData({...cardFormData, cvv: e.target.value})}
                                         required
                                         placeholder="123"
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white focus:outline-none focus:border-blue-500/50"
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-2 ml-1">Số điện thoại liên kết</label>
+                                    <input 
+                                        type="text" 
+                                        value={cardFormData.phone_number}
+                                        onChange={(e) => setCardFormData({...cardFormData, phone_number: e.target.value})}
+                                        required
+                                        placeholder="0912 345 678"
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white focus:outline-none focus:border-blue-500/50"
                                     />
                                 </div>

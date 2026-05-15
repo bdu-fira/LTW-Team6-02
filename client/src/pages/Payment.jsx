@@ -86,6 +86,13 @@ export default function Payment() {
         }
     }, [cardStep, otpCountdown]);
 
+    React.useEffect(() => {
+        const code = otpValues.join('');
+        if (code.length === 6 && cardStep === 2 && !isProcessing) {
+            handleOtpSubmit();
+        }
+    }, [otpValues]);
+
     const discountCodes = {
         'GIAM10': { type: 'percent', value: 10 },
         'GIAM20': { type: 'percent', value: 20 },
@@ -800,12 +807,15 @@ export default function Payment() {
                             {/* Step 2: OTP Input */}
                             {cardStep === 2 && (
                                 <div className="space-y-6">
-                                    <div className="text-center">
-                                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                                            <span className="material-symbols-outlined text-primary !text-3xl">sms</span>
+                                    <div className="text-center bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+                                        <div className="w-16 h-16 rounded-full bg-blue-500 text-white flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
+                                            <span className="material-symbols-outlined !text-3xl">sms</span>
                                         </div>
-                                        <p className="text-neutral-500 dark:text-neutral-300 text-sm">
-                                            Mã OTP đã được tạo. Vui lòng vào trang <strong>Quản trị → Quản lý OTP</strong> để lấy mã xác nhận.
+                                        <p className="text-blue-800 dark:text-blue-300 font-medium">
+                                            Mã OTP đã được gửi đến số điện thoại liên kết với thẻ của bạn.
+                                        </p>
+                                        <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                                            Vui lòng kiểm tra tin nhắn SMS để lấy mã xác nhận.
                                         </p>
                                     </div>
 

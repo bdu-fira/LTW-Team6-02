@@ -21,6 +21,11 @@ async function createSandboxTables() {
     console.log('✅ Kết nối DB thành công!');
 
     try {
+        // Drop existing tables to ensure schema update
+        await connection.execute('DROP TABLE IF EXISTS sandbox_otp_logs');
+        await connection.execute('DROP TABLE IF EXISTS sandbox_cards');
+        console.log('✅ Đã xóa các bảng cũ để cập nhật schema mới');
+
         // Tạo bảng sandbox_cards
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS sandbox_cards (
@@ -29,6 +34,7 @@ async function createSandboxTables() {
                 card_holder VARCHAR(255) NOT NULL,
                 expiry_date VARCHAR(5) NOT NULL,
                 cvv VARCHAR(4) NOT NULL,
+                phone_number VARCHAR(20) DEFAULT '0987654321',
                 balance DECIMAL(15,0) NOT NULL DEFAULT 10000000,
                 bank_name VARCHAR(100) DEFAULT 'Vietcombank',
                 is_active BOOLEAN DEFAULT TRUE,
@@ -43,6 +49,7 @@ async function createSandboxTables() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 transaction_id VARCHAR(100) NOT NULL UNIQUE,
                 card_number VARCHAR(19) NOT NULL,
+                phone_number VARCHAR(20) DEFAULT NULL,
                 otp_code VARCHAR(6) NOT NULL,
                 amount DECIMAL(15,0) NOT NULL,
                 status VARCHAR(20) DEFAULT 'PENDING',
@@ -56,29 +63,29 @@ async function createSandboxTables() {
 
         // Seed dữ liệu thẻ mẫu
         const cards = [
-            ['9704 0000 0000 0018', 'NGUYEN VAN A', '12/28', '123', 10000000, 'Vietcombank'],
-            ['9704 0000 0000 0026', 'TRAN THI B', '06/27', '456', 500000, 'Techcombank'],
-            ['9704 0000 0000 0034', 'LE VAN C', '03/29', '789', 50000000, 'BIDV'],
-            ['9704 0000 0000 0042', 'PHAM THI D', '01/26', '321', 0, 'Agribank'],
-            ['9999 0000 0000 9999', 'NGUYEN VU DAT', '01/30', '126', 1000000000000, 'MB Bank'],
+            ['9704 0000 0000 0018', 'NGUYEN VAN A', '12/28', '123', '0912345678', 10000000, 'Vietcombank'],
+            ['9704 0000 0000 0026', 'TRAN THI B', '06/27', '456', '0987654321', 500000, 'Techcombank'],
+            ['9704 0000 0000 0034', 'LE VAN C', '03/29', '789', '0909090909', 50000000, 'BIDV'],
+            ['9704 0000 0000 0042', 'PHAM THI D', '01/26', '321', '0888888888', 0, 'Agribank'],
+            ['9999 0000 0000 9999', 'NGUYEN VU DAT', '01/30', '126', '0383021104', 1000000000000, 'MB Bank'],
         ];
 
         for (const card of cards) {
             await connection.execute(
-                `INSERT INTO sandbox_cards (card_number, card_holder, expiry_date, cvv, balance, bank_name) VALUES (?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO sandbox_cards (card_number, card_holder, expiry_date, cvv, phone_number, balance, bank_name) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 card
             );
         }
         console.log(`✅ Seed ${cards.length} thẻ mẫu thành công!`);
 
         console.log('\n📋 Danh sách thẻ test:');
-        console.log('┌──────────────────────┬──────────────┬────────┬─────┬──────────────┬─────────────┐');
-        console.log('│ Số thẻ               │ Chủ thẻ      │ Hết hạn│ CVV │ Số dư        │ Ngân hàng   │');
-        console.log('├──────────────────────┼──────────────┼────────┼─────┼──────────────┼─────────────┤');
+        console.log('┌──────────────────────┬──────────────┬────────┬─────┬─────────────┬──────────────┬─────────────┐');
+        console.log('│ Số thẻ               │ Chủ thẻ      │ Hết hạn│ CVV │ SĐT         │ Số dư        │ Ngân hàng   │');
+        console.log('├──────────────────────┼──────────────┼────────┼─────┼─────────────┼──────────────┼─────────────┤');
         for (const c of cards) {
-            console.log(`│ ${c[0].padEnd(20)} │ ${c[1].padEnd(12)} │ ${c[2].padEnd(6)} │ ${c[3].padEnd(3)} │ ${String(c[4]).padStart(12)} │ ${c[5].padEnd(11)} │`);
+            console.log(`│ ${c[0].padEnd(20)} │ ${c[1].padEnd(12)} │ ${c[2].padEnd(6)} │ ${c[3].padEnd(3)} │ ${c[4].padEnd(11)} │ ${String(c[5]).padStart(12)} │ ${c[6].padEnd(11)} │`);
         }
-        console.log('└──────────────────────┴──────────────┴────────┴─────┴──────────────┴─────────────┘');
+        console.log('└──────────────────────┴──────────────┴────────┴─────┴─────────────┴──────────────┴─────────────┘');
 
     } catch (err) {
         console.error('❌ Lỗi:', err.message);

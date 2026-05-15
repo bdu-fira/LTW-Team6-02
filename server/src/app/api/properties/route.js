@@ -44,9 +44,9 @@ export async function GET(req) {
                     avatar: p.host_avatar || '',
                     superhost: p.host_role === 'host',
                 },
-                bedrooms: 3,
-                bathrooms: 2,
-                maxGuests: rooms.length > 0 ? rooms[0].max_adults : 2,
+                bedrooms: p.bedrooms || 0,
+                bathrooms: p.bathrooms || 0,
+                maxGuests: p.max_guests || (rooms.length > 0 ? rooms[0].max_adults : 0),
                 isHot: p.is_hot,
                 description: p.description,
                 images: {

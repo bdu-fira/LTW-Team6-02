@@ -180,7 +180,7 @@ export default function Header() {
     };
 
     const handleVerifyOtp = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const code = otpCode.join('');
         if (code.length < 6) { setOtpError('Vui lòng nhập đủ 6 chữ số'); return; }
         setOtpLoading(true); setOtpError('');
@@ -201,6 +201,13 @@ export default function Header() {
         } catch (err) { setOtpError(err.response?.data?.message || 'Lỗi kết nối máy chủ'); }
         finally { setOtpLoading(false); }
     };
+
+    useEffect(() => {
+        const code = otpCode.join('');
+        if (code.length === 6 && loginMode === 'otp' && !otpLoading) {
+            handleVerifyOtp();
+        }
+    }, [otpCode]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -342,7 +349,7 @@ export default function Header() {
 
     // Step 2: Verify OTP
     const handleForgotVerifyOtp = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setForgotError('');
 
         const otpCode = forgotOtp.join('');
@@ -408,6 +415,13 @@ export default function Header() {
             setForgotError(err.response?.data?.message || 'Lỗi kết nối máy chủ');
         }
     };
+
+    useEffect(() => {
+        const code = forgotOtp.join('');
+        if (code.length === 6 && isForgotOpen && forgotStep === 2 && !forgotLoading) {
+            handleForgotVerifyOtp();
+        }
+    }, [forgotOtp]);
 
     return (
         <>

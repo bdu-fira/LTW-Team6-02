@@ -61,9 +61,6 @@ export default function Admin() {
     const [propertiesPagination, setPropertiesPagination] = useState({ page: 1, total: 0, totalPages: 0 });
 
     // OTP state
-    const [otpLogs, setOtpLogs] = useState([]);
-    const [otpPagination, setOtpPagination] = useState({ page: 1, total: 0, totalPages: 0 });
-    const [otpStatusFilter, setOtpStatusFilter] = useState('');
     const [propertySearch, setPropertySearch] = useState('');
 
     // Modal states
@@ -118,9 +115,6 @@ export default function Admin() {
         if (activeTab === 'properties') fetchProperties();
     }, [activeTab, propertiesPagination.page, propertySearch]);
 
-    useEffect(() => {
-        if (activeTab === 'otps') fetchOtps();
-    }, [activeTab, otpPagination.page, otpStatusFilter]);
 
     useEffect(() => {
         if (activeTab === 'logs') fetchLogs();
@@ -183,21 +177,6 @@ export default function Admin() {
             fetchStats();
         });
 
-        // Listen for new OTP - refresh OTP list
-        socket.on('newOtp', (data) => {
-            console.log('New OTP created:', data);
-            if (activeTabRef.current === 'otps') {
-                fetchOtps();
-            }
-        });
-
-        // Listen for OTP status changes - refresh OTP list
-        socket.on('otpStatusChanged', (data) => {
-            console.log('OTP status changed:', data);
-            if (activeTabRef.current === 'otps') {
-                fetchOtps();
-            }
-        });
 
         return () => {
             if (socket) {
@@ -281,25 +260,6 @@ export default function Admin() {
         }
     };
 
-    const fetchOtps = async () => {
-        setTabLoading(true);
-        startLoading();
-        try {
-            const params = new URLSearchParams({
-                page: otpPagination.page,
-                limit: 20,
-                status: otpStatusFilter
-            });
-            const res = await api.get(`/api/admin/otps?${params}`);
-            setOtpLogs(res.data.otpLogs);
-            setOtpPagination(res.data.pagination);
-        } catch (err) {
-            console.error('Error fetching OTP logs:', err);
-        } finally {
-            setTabLoading(false);
-            stopLoading();
-        }
-    };
 
     const fetchLogs = async () => {
         try {
@@ -468,13 +428,6 @@ export default function Admin() {
                     >
                         <span className="material-symbols-outlined">home_work</span>
                         Quản lý Property
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('otps')}
-                        className={`w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 ${activeTab === 'otps' ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                        <span className="material-symbols-outlined">password</span>
-                        Quản lý OTP
                     </button>
                     <button
                         onClick={() => setActiveTab('logs')}
@@ -1069,128 +1022,6 @@ export default function Admin() {
                     </div>
                 )}
 
-                {/* OTP Tab */}
-                {activeTab === 'otps' && (
-                    <div>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-800">Quản lý OTP</h2>
-                            <button
-                                onClick={fetchOtps}
-                                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light flex items-center gap-2"
-                            >
-                                <span className="material-symbols-outlined">refresh</span>
-                                Làm mới
-                            </button>
-                        </div>
-
-                        {/* Filters */}
-                        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 mb-6">
-                            <div className="flex gap-4">
-                                <select
-                                    value={otpStatusFilter}
-                                    onChange={(e) => { setOtpStatusFilter(e.target.value); setOtpPagination(p => ({ ...p, page: 1 })); }}
-                                    className="px-4 py-2 border border-gray-200 rounded-lg"
-                                >
-                                    <option value="">Tất cả Status</option>
-                                    <option value="PENDING">Pending</option>
-                                    <option value="USED">Used</option>
-                                    <option value="EXPIRED">Expired</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* OTP Table */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">ID</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Log ID</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Chi tiết</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Mã OTP</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Số tiền</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Thời gian</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {otpLogs.map((log) => (
-                                        <tr key={log.id} className="border-t border-gray-100 hover:bg-gray-50">
-                                            <td className="py-3 px-4">#{log.id}</td>
-                                            <td className="py-3 px-4">
-                                                <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">{log.transaction_id.slice(0, 16)}...</span>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="text-sm">
-                                                    {log.transaction_id.startsWith('RESET_') ? (
-                                                        <><span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium"><span className="material-symbols-outlined !text-sm">lock_reset</span>Đổi mật khẩu</span> <span className="text-gray-500 text-xs block mt-1">{log.card_number}</span></>
-                                                    ) : (
-                                                        <><span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium"><span className="material-symbols-outlined !text-sm">credit_card</span>Thanh toán</span> <span className="font-mono text-gray-500 text-xs block mt-1">{log.card_number}</span></>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <span className="text-lg font-bold text-primary tracking-widest bg-primary/10 px-3 py-1 rounded-lg">{log.otp_code}</span>
-                                            </td>
-                                            <td className="py-3 px-4">{formatPrice(log.amount)}</td>
-                                            <td className="py-3 px-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                    log.status === 'USED' ? 'bg-green-100 text-green-800' :
-                                                        'bg-red-100 text-red-800'
-                                                    }`}>
-                                                    {log.status === 'PENDING' ? '⏳ Chờ xác nhận' : log.status === 'USED' ? '✅ Đã dùng' : '❌ Hết hạn'}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-sm text-gray-500">{formatDate(log.created_at)}</td>
-                                        </tr>
-                                    ))}
-                                    {otpLogs.length === 0 && (
-                                        <tr>
-                                            <td colSpan="7" className="py-8 text-center text-gray-500">
-                                                <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">password</span>
-                                                Chưa có mã OTP nào được tạo
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination */}
-                        {otpPagination.totalPages > 1 && (
-                            <div className="flex justify-center gap-2 mt-4">
-                                <button
-                                    onClick={() => setOtpPagination(p => ({ ...p, page: p.page - 1 }))}
-                                    disabled={otpPagination.page === 1}
-                                    className="px-4 py-2 border border-gray-200 rounded-lg disabled:opacity-50"
-                                >
-                                    Trước
-                                </button>
-                                <span className="px-4 py-2">
-                                    Trang {otpPagination.page} / {otpPagination.totalPages}
-                                </span>
-                                <button
-                                    onClick={() => setOtpPagination(p => ({ ...p, page: p.page + 1 }))}
-                                    disabled={otpPagination.page === otpPagination.totalPages}
-                                    className="px-4 py-2 border border-gray-200 rounded-lg disabled:opacity-50"
-                                >
-                                    Sau
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Info box */}
-                        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                                <span className="material-symbols-outlined text-blue-600">info</span>
-                                <div>
-                                    <p className="font-semibold text-blue-800">Hướng dẫn sử dụng</p>
-                                    <p className="text-sm text-blue-700 mt-1">Khi user thực hiện thanh toán bằng thẻ, hệ thống sẽ sinh mã OTP ngẫu nhiên và lưu tại đây. Bạn có thể tra cứu mã OTP trong bảng trên để nhập vào trang thanh toán. Mã OTP có hiệu lực trong 5 phút.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Activity Logs Tab */}
                 {activeTab === 'logs' && (

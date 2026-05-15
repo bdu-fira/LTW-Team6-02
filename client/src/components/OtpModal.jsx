@@ -20,6 +20,13 @@ const OtpModal = ({ isOpen, onClose, phone, onVerifySuccess }) => {
         return () => clearInterval(interval);
     }, [isOpen, timer]);
 
+    useEffect(() => {
+        const code = otp.join('');
+        if (code.length === 6 && isOpen && !loading) {
+            handleVerify();
+        }
+    }, [otp]);
+
     const handleChange = (index, value) => {
         if (isNaN(value)) return;
         const newOtp = [...otp];

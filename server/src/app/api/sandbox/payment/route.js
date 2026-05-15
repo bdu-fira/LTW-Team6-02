@@ -83,21 +83,22 @@ async function handleInitiate({ card_number, card_holder, expiry_date, cvv, amou
 
     // Lưu vào bảng sandbox_otp_logs
     await db.execute(
-        'INSERT INTO sandbox_otp_logs (transaction_id, card_number, otp_code, amount, status) VALUES (?, ?, ?, ?, ?)',
-        [transactionId, normalizedCardNumber, otpCode, numAmount, 'PENDING']
+        'INSERT INTO sandbox_otp_logs (transaction_id, card_number, phone_number, otp_code, amount, status) VALUES (?, ?, ?, ?, ?, ?)',
+        [transactionId, normalizedCardNumber, card.phone_number, otpCode, numAmount, 'PENDING']
     );
 
-    console.log(`[Sandbox Payment] OTP đã được tạo: ${otpCode} cho giao dịch ${transactionId}`);
+    console.log(`[Sandbox Payment] OTP đã được tạo: ${otpCode} cho giao dịch ${transactionId} (Gửi tới SĐT: ${card.phone_number})`);
 
     // Gửi SMS giả lập
-    const smsContent = `[Antigravity Travel] Ban dang thuc hien giao dich ${transactionId} so tien ${numAmount.toLocaleString()} VND. Ma OTP cua ban la ${otpCode}.`;
-    await sendVirtualSMS(normalizedCardNumber, smsContent);
+    const smsContent = `[Aoklevart] Ban dang thuc hien giao dich ${transactionId} so tien ${numAmount.toLocaleString()} VND. Ma OTP cua ban la ${otpCode}.`;
+    await sendVirtualSMS(card.phone_number, smsContent);
 
     // Emit Socket.IO event để Admin tự cập nhật
     if (global.io) {
         global.io.emit('newOtp', {
             transaction_id: transactionId,
             card_number: normalizedCardNumber,
+            phone_number: card.phone_number,
             amount: numAmount,
             status: 'PENDING'
         });
@@ -107,7 +108,7 @@ async function handleInitiate({ card_number, card_holder, expiry_date, cvv, amou
     return NextResponse.json({
         success: true,
         transaction_id: transactionId,
-        message: 'Mã OTP đã được gửi. Vui lòng kiểm tra trong hệ thống quản trị.'
+        message: 'Mã OTP đã được gửi đến số điện thoại liên kết với thẻ của bạn. Vui lòng kiểm tra tin nhắn SMS.'
     });
 }
 

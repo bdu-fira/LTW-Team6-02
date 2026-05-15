@@ -2,6 +2,54 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import db from '../../../../lib/db';
 
+export async function POST(req) {
+    try {
+        const authHeader = req.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json({ message: 'Không có quyền truy cập' }, { status: 401 });
+        }
+
+        const token = authHeader.split(' ')[1];
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_here');
+        } catch {
+            return NextResponse.json({ message: 'Token không hợp lệ hoặc đã hết hạn' }, { status: 401 });
+        }
+
+        const hostId = decoded.user.id;
+        const body = await req.json();
+        const { name, type, location, description, price_display, bedrooms, bathrooms, max_guests, map_embed } = body;
+
+        if (!name || !type || !location) {
+            return NextResponse.json({ message: 'Vui lòng điền đầy đủ các thông tin bắt buộc (Tên, Loại, Địa chỉ)' }, { status: 400 });
+        }
+
+        const [result] = await db.execute(`
+            INSERT INTO properties (name, type, location, description, price_display, host_id, status, is_hot, bedrooms, bathrooms, max_guests, map_embed)
+            VALUES (?, ?, ?, ?, ?, ?, 'active', 0, ?, ?, ?, ?)
+        `, [name, type, location, description || '', price_display || 0, hostId, bedrooms || 0, bathrooms || 0, max_guests || 0, map_embed || '']);
+
+        const newPropertyId = result.insertId;
+
+        // Optionally add a default image if provided or placeholder
+        if (body.imageUrl) {
+            await db.execute(`
+                INSERT INTO property_images (property_id, image_url, is_main)
+                VALUES (?, ?, 1)
+            `, [newPropertyId, body.imageUrl]);
+        }
+
+        return NextResponse.json({
+            message: 'Thêm chỗ nghỉ mới thành công!',
+            id: newPropertyId
+        }, { status: 201 });
+    } catch (err) {
+        console.error('Lỗi khi thêm property mới:', err);
+        return NextResponse.json({ message: 'Lỗi server !', error: String(err) }, { status: 500 });
+    }
+}
+
 export async function GET(req) {
     try {
         const authHeader = req.headers.get('authorization');
@@ -62,9 +110,9 @@ export async function GET(req) {
                     avatar: p.host_avatar || '',
                     superhost: p.host_role === 'host',
                 },
-                bedrooms: 3,
-                bathrooms: 2,
-                maxGuests: rooms.length > 0 ? rooms[0].max_adults : 2,
+                bedrooms: p.bedrooms || 0,
+                bathrooms: p.bathrooms || 0,
+                maxGuests: p.max_guests || (rooms.length > 0 ? rooms[0].max_adults : 0),
                 isHot: p.is_hot,
                 description: p.description,
                 images: {
