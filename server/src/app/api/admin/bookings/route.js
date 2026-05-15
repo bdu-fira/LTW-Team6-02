@@ -31,7 +31,7 @@ export async function GET(req) {
         );
 
         // Get bookings with property and user info
-        const [bookings] = await db.execute(`
+        const [bookings] = await db.query(`
             SELECT
                 b.id, b.check_in, b.check_out, b.number_of_rooms, b.total_price, b.status,
                 b.special_requests, b.created_at,

@@ -32,7 +32,7 @@ export async function GET(req) {
         );
 
         // Get OTP logs
-        const [otpLogs] = await db.execute(`
+        const [otpLogs] = await db.query(`
             SELECT * FROM sandbox_otp_logs
             WHERE ${whereClause}
             ORDER BY created_at DESC

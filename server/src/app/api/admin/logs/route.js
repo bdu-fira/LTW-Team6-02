@@ -14,7 +14,7 @@ export async function GET(req) {
         const limit = parseInt(searchParams.get('limit')) || 20;
         const offset = (page - 1) * limit;
 
-        const [logs] = await db.execute(`
+        const [logs] = await db.query(`
             SELECT l.*, u.name as user_name
             FROM activity_logs l
             LEFT JOIN users u ON l.user_id = u.id
