@@ -14,7 +14,7 @@ export async function GET(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = await params;
+        const { id } = params;
 
         // Get booking details
         const [bookings] = await db.execute(`
@@ -63,7 +63,7 @@ export async function PUT(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = await params;
+        const { id } = params;
         const body = await req.json();
         const { status, note } = body;
 
@@ -237,7 +237,7 @@ export async function DELETE(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = await params;
+        const { id } = params;
 
         // Check if booking exists
         const [existingBookings] = await db.execute('SELECT * FROM bookings WHERE id = ?', [id]);
