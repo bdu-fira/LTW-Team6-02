@@ -482,7 +482,7 @@ export default function HostDashboard() {
     }, [bookings, timeRange]);
 
     const totalRevenue = filteredBookings
-        .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
+        .filter(b => ['confirmed', 'completed', 'checked_in', 'checked_out'].includes(b.status) && b.customer_email !== 'walkin@system.com')
         .reduce((sum, b) => sum + Number(b.total_price), 0);
     const totalBookings = filteredBookings.length;
     const totalProperties = properties.length;
@@ -494,7 +494,7 @@ export default function HostDashboard() {
     const chartData = useMemo(() => {
         // Revenue by month (from bookings)
         const revenueMap = {};
-        filteredBookings.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
+        filteredBookings.filter(b => ['confirmed', 'completed', 'checked_in', 'checked_out'].includes(b.status) && b.customer_email !== 'walkin@system.com')
             .forEach(b => {
                 let m = new Date(b.created_at).toISOString().slice(0, 7);
                 if (timeRange === 'today') {
@@ -509,9 +509,12 @@ export default function HostDashboard() {
             .slice(-6)
             .map(([month, revenue]) => ({ month, revenue }));
 
-        // Bookings by status
+        // Bookings by status (using displayStatus for more detail)
         const statusMap = {};
-        filteredBookings.forEach(b => { statusMap[b.status] = (statusMap[b.status] || 0) + 1; });
+        filteredBookings.forEach(b => { 
+            const s = b.displayStatus || b.status;
+            statusMap[s] = (statusMap[s] || 0) + 1; 
+        });
         const bookingsByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
 
         // Bookings per day
@@ -531,7 +534,7 @@ export default function HostDashboard() {
         filteredBookings.forEach(b => {
             if (!propMap[b.property_name]) propMap[b.property_name] = { name: b.property_name, count: 0, revenue: 0 };
             propMap[b.property_name].count++;
-            if ((b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com') {
+            if (['confirmed', 'completed', 'checked_in', 'checked_out'].includes(b.status)) {
                 propMap[b.property_name].revenue += Number(b.total_price);
             }
         });
@@ -655,8 +658,8 @@ export default function HostDashboard() {
                                     <span className="material-symbols-outlined text-white/80">payments</span>
                                     <span className="text-[9px] uppercase font-bold text-white/70">Doanh thu Web</span>
                                 </div>
-                                <p className="text-lg font-black">{formatPrice(totalRevenue)}</p>
-                                <p className="text-[9px] text-white/60 mt-0.5">* Không gồm nghiệp vụ ngoài web</p>
+                                <p className="text-2xl font-black">{formatPrice(totalRevenue)}</p>
+                                <p className="text-[10px] text-white/60 mt-0.5">* Không gồm nghiệp vụ ngoài web</p>
                             </div>
                             <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white shadow-lg shadow-emerald-500/20">
                                 <div className="flex items-center justify-between mb-1">
@@ -691,7 +694,9 @@ export default function HostDashboard() {
                         {/* Charts Row 1 */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                                <h3 className="text-sm font-bold text-gray-800 mb-1">Doanh thu Web theo tháng</h3>
+                                <h3 className="text-sm font-bold text-gray-800 mb-1">
+                                    Doanh thu Web {timeRange === 'today' ? 'trong ngày' : timeRange === 'all' ? 'theo tháng' : 'trong kỳ'}
+                                </h3>
                                 <p className="text-[10px] text-gray-400 mb-3">Chỉ tính đơn đặt qua web</p>
                                 <div style={{ width: '100%', height: 220 }}>
                                     <ResponsiveContainer>
@@ -705,7 +710,17 @@ export default function HostDashboard() {
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v} />
-                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v) => [formatPrice(v), 'Doanh thu']} labelFormatter={(l) => `Tháng ${l}`} />
+                                            <Tooltip 
+                                                contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} 
+                                                formatter={(v) => [formatPrice(v), 'Doanh thu']} 
+                                                labelFormatter={(l) => {
+                                                    if (l.includes('-')) {
+                                                        const [y, m] = l.split('-');
+                                                        return m && y ? `Tháng ${m}/${y}` : l;
+                                                    }
+                                                    return l;
+                                                }} 
+                                            />
                                             <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#hRev)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -721,9 +736,37 @@ export default function HostDashboard() {
                                     <ResponsiveContainer>
                                         <BarChart data={chartData.bookingsByDay} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(d) => { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}`; }} />
+                                            <XAxis 
+                                                dataKey="date" 
+                                                tick={{ fontSize: 10, fill: '#9ca3af' }} 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tickFormatter={(d) => { 
+                                                    if (!d) return '';
+                                                    if (d.includes(':')) return d; // 12:00
+                                                    if (d.length === 7) { // 2026-05
+                                                        const [y, m] = d.split('-');
+                                                        return `${m}/${y}`;
+                                                    }
+                                                    const dt = new Date(d); 
+                                                    return isNaN(dt.getTime()) ? d : `${dt.getDate()}/${dt.getMonth() + 1}`; 
+                                                }} 
+                                            />
                                             <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} labelFormatter={(d) => new Date(d).toLocaleDateString('vi-VN')} formatter={(v) => [v, 'Đơn đặt']} />
+                                            <Tooltip 
+                                                contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.1)', fontSize: 12 }} 
+                                                labelFormatter={(d) => {
+                                                    if (!d) return '';
+                                                    if (d.includes(':')) return `Giờ ${d}`;
+                                                    if (d.length === 7) {
+                                                        const [y, m] = d.split('-');
+                                                        return `Tháng ${m}/${y}`;
+                                                    }
+                                                    const dt = new Date(d);
+                                                    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('vi-VN');
+                                                }} 
+                                                formatter={(v) => [v, 'Đơn đặt']} 
+                                            />
                                             <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={36}>
                                                 {chartData.bookingsByDay.map((_, i) => <Cell key={i} fill={i === chartData.bookingsByDay.length - 1 ? '#059669' : '#6ee7b7'} />)}
                                             </Bar>
@@ -743,18 +786,44 @@ export default function HostDashboard() {
                                         <PieChart>
                                             <Pie data={chartData.bookingsByStatus} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
                                                 {chartData.bookingsByStatus.map((entry) => {
-                                                    const c = { confirmed: '#10b981', completed: '#3b82f6', cancelled: '#ef4444', pending: '#f59e0b', checked_in: '#6366f1', checked_out: '#14b8a6' };
+                                                    const c = { 
+                                                        confirmed: '#10b981', 
+                                                        completed: '#3b82f6', 
+                                                        cancelled: '#ef4444', 
+                                                        pending: '#f59e0b', 
+                                                        checked_in: '#6366f1', 
+                                                        checked_out: '#14b8a6',
+                                                        not_checked_in: '#f97316',
+                                                        no_show: '#94a3b8',
+                                                        stay_over: '#e11d48'
+                                                    };
                                                     return <Cell key={entry.name} fill={c[entry.name] || '#94a3b8'} />;
                                                 })}
                                             </Pie>
-                                            <Tooltip contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,.1)', fontSize: 12 }} formatter={(v, n) => { const l = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý', checked_in: 'Đã nhận phòng', checked_out: 'Đã trả phòng' }; return [v, l[n] || n]; }} />
+                                            <Tooltip 
+                                                contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,.1)', fontSize: 12 }} 
+                                                formatter={(v, n) => { 
+                                                    const l = { 
+                                                        confirmed: 'Xác nhận', 
+                                                        completed: 'Hoàn thành', 
+                                                        cancelled: 'Đã hủy', 
+                                                        pending: 'Chờ xử lý', 
+                                                        checked_in: 'Đã nhận phòng', 
+                                                        checked_out: 'Đã trả phòng',
+                                                        not_checked_in: 'Chưa check-in',
+                                                        no_show: 'Vắng mặt',
+                                                        stay_over: 'Quá hạn'
+                                                    }; 
+                                                    return [v, l[n] || n]; 
+                                                }} 
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="space-y-1 mt-1">
                                     {chartData.bookingsByStatus.map((item) => {
-                                        const cl = { confirmed: 'bg-emerald-500', completed: 'bg-blue-500', cancelled: 'bg-red-500', pending: 'bg-amber-500', checked_in: 'bg-indigo-500', checked_out: 'bg-teal-500' };
-                                        const lb = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý', checked_in: 'Nhận phòng', checked_out: 'Trả phòng' };
+                                        const cl = { confirmed: 'bg-emerald-500', completed: 'bg-blue-500', cancelled: 'bg-red-500', pending: 'bg-amber-500', checked_in: 'bg-indigo-500', checked_out: 'bg-teal-500', not_checked_in: 'bg-orange-500', no_show: 'bg-slate-400', stay_over: 'bg-rose-600' };
+                                        const lb = { confirmed: 'Xác nhận', completed: 'Hoàn thành', cancelled: 'Đã hủy', pending: 'Chờ xử lý', checked_in: 'Nhận phòng', checked_out: 'Trả phòng', not_checked_in: 'Chưa check-in', no_show: 'Vắng mặt', stay_over: 'Quá hạn' };
                                         return (<div key={item.name} className="flex items-center justify-between text-[11px]"><div className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-full ${cl[item.name] || 'bg-gray-400'}`}></div><span className="text-gray-600">{lb[item.name] || item.name}</span></div><span className="font-bold text-gray-800">{item.value}</span></div>);
                                     })}
                                 </div>
@@ -771,7 +840,7 @@ export default function HostDashboard() {
                                         return (
                                             <div key={prop.name}>
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <p className="text-xs font-bold text-gray-700 truncate max-w-[120px]">{prop.name}</p>
+                                                    <p className="text-xs font-bold text-gray-700 truncate max-w-[180px]">{prop.name}</p>
                                                     <p className="text-[10px] font-bold text-primary">{formatPrice(prop.revenue)}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -808,7 +877,7 @@ export default function HostDashboard() {
                                             {filteredBookings.slice(0, 5).map((b) => (
                                                 <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                                                     <td className="py-2 px-2 font-mono text-gray-600">#{b.id}</td>
-                                                    <td className="py-2 px-2 font-medium text-gray-800 truncate max-w-[120px]">{b.property_name}</td>
+                                                    <td className="py-2 px-2 font-medium text-gray-800 truncate max-w-[180px]">{b.property_name}</td>
                                                     <td className="py-2 px-2 text-gray-600">{b.customer_name}</td>
                                                     <td className="py-2 px-2 text-gray-600">{formatDate(b.created_at)}</td>
                                                     <td className="py-2 px-2">{getStatusBadge(b.status, b.displayStatus)}</td>
