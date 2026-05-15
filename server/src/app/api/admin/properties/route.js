@@ -39,7 +39,7 @@ export async function GET(req) {
         // Get properties with host info
         const [properties] = await db.query(`
             SELECT
-                p.id, p.name, p.type, p.location, p.price_display, p.is_hot, p.created_at,
+                p.id, p.name, p.type, p.location, p.price_display, p.is_hot, p.status as property_status, p.created_at,
                 u.id as host_id, u.name as host_name, u.email as host_email
             FROM properties p
             LEFT JOIN users u ON p.host_id = u.id
