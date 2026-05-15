@@ -996,7 +996,7 @@ export default function Admin() {
                                     <tr>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">ID</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Tên</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Loại</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Cơ cấu phòng</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Location</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Host</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Giá</th>
@@ -1009,7 +1009,9 @@ export default function Admin() {
                                         <tr key={property.id} className="border-t border-gray-100 hover:bg-gray-50">
                                             <td className="py-3 px-4">#{property.id}</td>
                                             <td className="py-3 px-4 max-w-xs truncate">{property.name}</td>
-                                            <td className="py-3 px-4">{property.type}</td>
+                                            <td className="py-3 px-4 max-w-xs truncate" title={property.room_types}>
+                                                {property.room_types || 'Chưa có loại phòng'}
+                                            </td>
                                             <td className="py-3 px-4 max-w-xs truncate">{property.location}</td>
                                             <td className="py-3 px-4">{property.host_name}</td>
                                             <td className="py-3 px-4">{formatPrice(property.price_display)}</td>
