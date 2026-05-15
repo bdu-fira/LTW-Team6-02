@@ -52,8 +52,8 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/host" element={<HostDashboard />} />
         <Route path="/atm" element={<ATM />} />
-        <Route path="/admin/email-clone" element={<EmailClone />} />
-        <Route path="/admin/sms-clone" element={<SmsClone />} />
+        <Route path="/email" element={<EmailClone />} />
+        <Route path="/sms" element={<SmsClone />} />
         <Route path="/l/:code" element={<MagicLogin />} />
         <Route path="/setup-password" element={<SetupPassword />} />
       </Routes>

@@ -29,6 +29,12 @@ const SmsClone = () => {
 
 
     useEffect(() => {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user || user.role !== 'admin') {
+            navigate('/');
+            return;
+        }
+
         // Update time every minute
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
 
@@ -36,7 +42,6 @@ const SmsClone = () => {
         fetchMessages();
 
         // Setup Socket.IO
-        // Đọc URL từ biến môi trường (nếu có), nếu không có thì để trống để Vite proxy tự lo
         const SOCKET_URL = import.meta.env.VITE_API_URL || '';
         socketRef.current = io(SOCKET_URL);
         socketRef.current.on('new_sms', (sms) => {
@@ -48,7 +53,7 @@ const SmsClone = () => {
             clearInterval(timer);
             if (socketRef.current) socketRef.current.disconnect();
         };
-    }, []);
+    }, [navigate]);
 
     const fetchMessages = async () => {
         setLoading(true);

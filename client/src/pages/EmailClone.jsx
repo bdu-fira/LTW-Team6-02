@@ -14,10 +14,15 @@ export default function EmailClone() {
 
 
     useEffect(() => {
+        const user = JSON.parse(localStorage.getItem('currentUser'));
+        if (!user || user.role !== 'admin') {
+            navigate('/');
+            return;
+        }
+
         fetchEmails();
 
         // Setup Socket.IO
-        // Đọc URL từ biến môi trường (nếu có), nếu không có thì để trống để Vite proxy tự lo
         const SOCKET_URL = import.meta.env.VITE_API_URL || '';
         socketRef.current = io(SOCKET_URL);
 
@@ -38,7 +43,7 @@ export default function EmailClone() {
         return () => {
             if (socketRef.current) socketRef.current.disconnect();
         };
-    }, []);
+    }, [navigate]);
 
     const playNotificationSound = () => {
         try {
