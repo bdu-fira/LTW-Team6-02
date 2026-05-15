@@ -20,6 +20,23 @@ export default function HostDashboard() {
     const [timeRange, setTimeRange] = useState('all');
     const [walkInModal, setWalkInModal] = useState({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
 
+    // Room Management states
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [roomTypesLoading, setRoomTypesLoading] = useState(false);
+    const [showAddRoom, setShowAddRoom] = useState(false);
+    const [newRoom, setNewRoom] = useState({
+        name: '',
+        price: '',
+        total_allotment: '',
+        max_adults: 2,
+        max_children: 1,
+        room_size: '',
+        bed_type: ''
+    });
+    const [roomError, setRoomError] = useState('');
+    const [roomSuccess, setRoomSuccess] = useState('');
+    const [editingRoomType, setEditingRoomType] = useState(null);
+
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('currentUser'));
         if (!user || user.role !== 'host') {
@@ -46,6 +63,78 @@ export default function HostDashboard() {
             setError('Error fetching data');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Room Management functions
+    useEffect(() => {
+        if (selectedProperty?.id) {
+            fetchRoomTypes();
+        }
+    }, [selectedProperty?.id]);
+
+    const fetchRoomTypes = async () => {
+        setRoomTypesLoading(true);
+        try {
+            const res = await api.get(`/api/host/properties/${selectedProperty.id}/rooms`);
+            setRoomTypes(res.data.rooms || []);
+        } catch (err) {
+            console.error('Lỗi khi lấy room types:', err);
+        } finally {
+            setRoomTypesLoading(false);
+        }
+    };
+
+    const handleAddRoom = async () => {
+        setRoomError('');
+        if (!newRoom.name || !newRoom.price || !newRoom.total_allotment) {
+            setRoomError('Vui lòng nhập tên, giá và số phòng');
+            return;
+        }
+        try {
+            await api.post(`/api/host/properties/${selectedProperty.id}/rooms`, newRoom);
+            setRoomSuccess('Thêm loại phòng thành công!');
+            setNewRoom({ name: '', price: '', total_allotment: '', max_adults: 2, max_children: 1, room_size: '', bed_type: '' });
+            setShowAddRoom(false);
+            fetchRoomTypes();
+            setTimeout(() => setRoomSuccess(''), 3000);
+        } catch (err) {
+            setRoomError(err.response?.data?.message || 'Lỗi khi thêm loại phòng');
+        }
+    };
+
+    const handleUpdateRoom = async (roomType) => {
+        setRoomError('');
+        try {
+            await api.put(`/api/host/properties/${selectedProperty.id}/rooms`, {
+                room_type_id: roomType.id,
+                name: roomType.name,
+                price: roomType.price,
+                total_allotment: roomType.total_allotment,
+                max_adults: roomType.max_adults,
+                max_children: roomType.max_children,
+                room_size: roomType.room_size,
+                bed_type: roomType.bed_type,
+            });
+            setRoomSuccess('Cập nhật thành công!');
+            setEditingRoomType(null);
+            fetchRoomTypes();
+            setTimeout(() => setRoomSuccess(''), 3000);
+        } catch (err) {
+            setRoomError(err.response?.data?.message || 'Lỗi khi cập nhật');
+        }
+    };
+
+    const handleDeleteRoom = async (roomTypeId) => {
+        if (!window.confirm('Bạn có chắc chắn muốn xóa loại phòng này?')) return;
+        setRoomError('');
+        try {
+            await api.delete(`/api/host/properties/${selectedProperty.id}/rooms?room_type_id=${roomTypeId}`);
+            setRoomSuccess('Xóa loại phòng thành công!');
+            fetchRoomTypes();
+            setTimeout(() => setRoomSuccess(''), 3000);
+        } catch (err) {
+            setRoomError(err.response?.data?.message || 'Lỗi khi xóa');
         }
     };
 
@@ -965,6 +1054,194 @@ export default function HostDashboard() {
                                         </div>
                                     );
                                 })()}
+
+                                {/* Room Types Management Section */}
+                                <div className="mt-8 pt-8 border-t border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary">king_bed</span>
+                                            Quản lý loại phòng
+                                            <span className="text-xs font-normal text-gray-500">({roomTypes.length} loại)</span>
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowAddRoom(!showAddRoom);
+                                                setEditingRoomType(null);
+                                            }}
+                                            className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs hover:bg-primary/90 flex items-center gap-1 shadow-sm"
+                                        >
+                                            <span className="material-symbols-outlined !text-sm">{showAddRoom ? 'close' : 'add'}</span>
+                                            {showAddRoom ? 'Đóng' : 'Thêm loại phòng'}
+                                        </button>
+                                    </div>
+
+                                    {/* Room Messages */}
+                                    {roomError && (
+                                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 flex items-center gap-2">
+                                            <span className="material-symbols-outlined !text-base">error</span>
+                                            {roomError}
+                                            <button onClick={() => setRoomError('')} className="ml-auto font-bold">&times;</button>
+                                        </div>
+                                    )}
+                                    {roomSuccess && (
+                                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-600 flex items-center gap-2">
+                                            <span className="material-symbols-outlined !text-base">check_circle</span>
+                                            {roomSuccess}
+                                        </div>
+                                    )}
+
+                                    {/* Add/Edit Room Form */}
+                                    {(showAddRoom || editingRoomType) && (
+                                        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-2xl shadow-inner">
+                                            <h5 className="font-bold text-xs text-gray-700 mb-4 flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-sm">{editingRoomType ? 'edit' : 'add_circle'}</span>
+                                                {editingRoomType ? `Sửa: ${editingRoomType.name}` : 'Thêm loại phòng mới'}
+                                            </h5>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                                <div className="md:col-span-1">
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Tên loại phòng *</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={editingRoomType ? editingRoomType.name : newRoom.name}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, name: e.target.value }) : setNewRoom({ ...newRoom, name: e.target.value })}
+                                                        placeholder="VD: Phòng Deluxe"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Giá/đêm (VND) *</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={editingRoomType ? editingRoomType.price : newRoom.price}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, price: e.target.value }) : setNewRoom({ ...newRoom, price: e.target.value })}
+                                                        placeholder="3500000"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Tổng số phòng *</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={editingRoomType ? editingRoomType.total_allotment : newRoom.total_allotment}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, total_allotment: e.target.value }) : setNewRoom({ ...newRoom, total_allotment: e.target.value })}
+                                                        placeholder="10"
+                                                        min="1"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Người lớn</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={editingRoomType ? editingRoomType.max_adults : newRoom.max_adults}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: e.target.value }) : setNewRoom({ ...newRoom, max_adults: e.target.value })}
+                                                        min="1"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Trẻ em</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={editingRoomType ? editingRoomType.max_children : newRoom.max_children}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: e.target.value }) : setNewRoom({ ...newRoom, max_children: e.target.value })}
+                                                        min="0"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Diện tích (m²)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={editingRoomType ? editingRoomType.room_size : newRoom.room_size}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, room_size: e.target.value }) : setNewRoom({ ...newRoom, room_size: e.target.value })}
+                                                        placeholder="25"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Loại giường</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={editingRoomType ? editingRoomType.bed_type : newRoom.bed_type}
+                                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, bed_type: e.target.value }) : setNewRoom({ ...newRoom, bed_type: e.target.value })}
+                                                        placeholder="1 Giường đôi"
+                                                        className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary" 
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-3">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => editingRoomType ? handleUpdateRoom(editingRoomType) : handleAddRoom()}
+                                                    className="flex-1 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light shadow-md transition-all"
+                                                >
+                                                    {editingRoomType ? 'Cập nhật thay đổi' : 'Xác nhận thêm'}
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => editingRoomType ? setEditingRoomType(null) : setShowAddRoom(false)}
+                                                    className="px-6 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-white"
+                                                >
+                                                    Hủy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Room Types List */}
+                                    <div className="space-y-3 pb-6">
+                                        {roomTypes.map(room => (
+                                            <div key={room.id} className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between hover:border-primary/20 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                                                        <span className="material-symbols-outlined">king_bed</span>
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="font-bold text-gray-800 text-sm">{room.name}</h5>
+                                                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500">
+                                                            <span className="font-bold text-primary">{formatPrice(room.price)}</span>
+                                                            <span>•</span>
+                                                            <span>{room.total_allotment} phòng</span>
+                                                            <span>•</span>
+                                                            <span>{room.max_adults}N, {room.max_children}T</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => setEditingRoomType(room)}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-lg">edit</span>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteRoom(room.id)}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-lg">delete</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {roomTypes.length === 0 && !roomTypesLoading && (
+                                            <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                                <p className="text-xs text-gray-400">Chưa có loại phòng nào được tạo</p>
+                                            </div>
+                                        )}
+                                        {roomTypesLoading && (
+                                            <div className="text-center py-10">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
