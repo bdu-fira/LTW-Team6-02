@@ -17,6 +17,7 @@ export default function HostDashboard() {
     const [bookings, setBookings] = useState([]);
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
+    const [timeRange, setTimeRange] = useState('all');
     const [walkInModal, setWalkInModal] = useState({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
 
     useEffect(() => {
@@ -180,22 +181,64 @@ export default function HostDashboard() {
         return now >= checkOut;
     }).length;
 
-    const totalRevenue = bookings
+    const filteredBookings = useMemo(() => {
+        if (timeRange === 'all') return bookings;
+        
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        
+        return bookings.filter(b => {
+            const checkIn = new Date(b.check_in);
+            const checkOut = new Date(b.check_out);
+            
+            switch (timeRange) {
+                case 'today':
+                    return checkIn <= endOfDay && checkOut >= startOfDay;
+                case '7days': {
+                    const sevenDaysAgo = new Date(startOfDay);
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    return checkOut >= sevenDaysAgo && checkIn <= endOfDay;
+                }
+                case 'month': {
+                    return (checkIn.getMonth() === now.getMonth() && checkIn.getFullYear() === now.getFullYear()) ||
+                           (checkOut.getMonth() === now.getMonth() && checkOut.getFullYear() === now.getFullYear());
+                }
+                case 'quarter': {
+                    const currentQuarter = Math.floor(now.getMonth() / 3);
+                    return (Math.floor(checkIn.getMonth() / 3) === currentQuarter && checkIn.getFullYear() === now.getFullYear()) ||
+                           (Math.floor(checkOut.getMonth() / 3) === currentQuarter && checkOut.getFullYear() === now.getFullYear());
+                }
+                case 'year': {
+                    return checkIn.getFullYear() === now.getFullYear() || checkOut.getFullYear() === now.getFullYear();
+                }
+                default:
+                    return true;
+            }
+        });
+    }, [bookings, timeRange]);
+
+    const totalRevenue = filteredBookings
         .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
         .reduce((sum, b) => sum + Number(b.total_price), 0);
-    const totalBookings = bookings.length;
+    const totalBookings = filteredBookings.length;
     const totalProperties = properties.length;
-    const webBookingsCount = bookings.filter(b => b.customer_email !== 'walkin@system.com').length;
-    const walkinCount = bookings.filter(b => b.customer_email === 'walkin@system.com').length;
-    const confirmedCount = bookings.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
+    const webBookingsCount = filteredBookings.filter(b => b.customer_email !== 'walkin@system.com').length;
+    const walkinCount = filteredBookings.filter(b => b.customer_email === 'walkin@system.com').length;
+    const confirmedCount = filteredBookings.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
 
     // Chart data computed from bookings
     const chartData = useMemo(() => {
         // Revenue by month (from bookings)
         const revenueMap = {};
-        bookings.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
+        filteredBookings.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com')
             .forEach(b => {
-                const m = new Date(b.created_at).toISOString().slice(0, 7);
+                let m = new Date(b.created_at).toISOString().slice(0, 7);
+                if (timeRange === 'today') {
+                    m = new Date(b.created_at).toISOString().slice(11, 13) + ':00';
+                } else if (timeRange === '7days' || timeRange === 'month') {
+                    m = new Date(b.created_at).toISOString().slice(0, 10);
+                }
                 revenueMap[m] = (revenueMap[m] || 0) + Number(b.total_price);
             });
         const revenueByMonth = Object.entries(revenueMap)
@@ -205,25 +248,24 @@ export default function HostDashboard() {
 
         // Bookings by status
         const statusMap = {};
-        bookings.forEach(b => { statusMap[b.status] = (statusMap[b.status] || 0) + 1; });
+        filteredBookings.forEach(b => { statusMap[b.status] = (statusMap[b.status] || 0) + 1; });
         const bookingsByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
 
-        // Bookings per day (last 7 days)
+        // Bookings per day
         const dayMap = {};
-        const now = new Date();
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(now); d.setDate(d.getDate() - i);
-            dayMap[d.toISOString().slice(0, 10)] = 0;
-        }
-        bookings.forEach(b => {
-            const d = new Date(b.created_at).toISOString().slice(0, 10);
-            if (dayMap[d] !== undefined) dayMap[d]++;
+        filteredBookings.forEach(b => {
+            let d = new Date(b.created_at).toISOString().slice(0, 10);
+            if (timeRange === 'today') d = new Date(b.created_at).toISOString().slice(11, 13) + ':00';
+            else if (timeRange === 'quarter' || timeRange === 'year' || timeRange === 'all') d = new Date(b.created_at).toISOString().slice(0, 7);
+            dayMap[d] = (dayMap[d] || 0) + 1;
         });
-        const bookingsByDay = Object.entries(dayMap).map(([date, count]) => ({ date, count }));
+        const bookingsByDay = Object.entries(dayMap)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, count]) => ({ date, count }));
 
         // Top properties by bookings
         const propMap = {};
-        bookings.forEach(b => {
+        filteredBookings.forEach(b => {
             if (!propMap[b.property_name]) propMap[b.property_name] = { name: b.property_name, count: 0, revenue: 0 };
             propMap[b.property_name].count++;
             if ((b.status === 'confirmed' || b.status === 'completed') && b.customer_email !== 'walkin@system.com') {
@@ -233,7 +275,7 @@ export default function HostDashboard() {
         const topProperties = Object.values(propMap).sort((a, b) => b.count - a.count).slice(0, 5);
 
         return { revenueByMonth, bookingsByStatus, bookingsByDay, topProperties };
-    }, [bookings]);
+    }, [filteredBookings]);
 
     if (loading) {
         return (
@@ -319,7 +361,21 @@ export default function HostDashboard() {
                     <div className="animate-fade-in-up">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-display font-bold text-gray-800">Tổng quan hoạt động</h2>
-                            <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                            <div className="flex items-center gap-4">
+                                <select 
+                                    value={timeRange} 
+                                    onChange={(e) => setTimeRange(e.target.value)}
+                                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary text-gray-600 bg-white"
+                                >
+                                    <option value="today">Hôm nay</option>
+                                    <option value="7days">7 ngày qua</option>
+                                    <option value="month">Tháng này</option>
+                                    <option value="quarter">Quý này</option>
+                                    <option value="year">Năm nay</option>
+                                    <option value="all">Tất cả thời gian</option>
+                                </select>
+                                <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                            </div>
                         </div>
 
                         {/* Stats Cards */}
@@ -388,7 +444,9 @@ export default function HostDashboard() {
                             </div>
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-800 mb-1">Đơn đặt phòng</h3>
-                                <p className="text-[10px] text-gray-400 mb-3">7 ngày gần nhất</p>
+                                <p className="text-[10px] text-gray-400 mb-3">
+                                    {timeRange === 'today' ? 'Hôm nay' : timeRange === '7days' ? '7 ngày qua' : timeRange === 'month' ? 'Tháng này' : timeRange === 'quarter' ? 'Quý này' : timeRange === 'year' ? 'Năm nay' : 'Tất cả thời gian'}
+                                </p>
                                 <div style={{ width: '100%', height: 220 }}>
                                     <ResponsiveContainer>
                                         <BarChart data={chartData.bookingsByDay} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -477,7 +535,7 @@ export default function HostDashboard() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {bookings.slice(0, 5).map((b) => (
+                                            {filteredBookings.slice(0, 5).map((b) => (
                                                 <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                                                     <td className="py-2 px-2 font-mono text-gray-600">#{b.id}</td>
                                                     <td className="py-2 px-2 font-medium text-gray-800 truncate max-w-[120px]">{b.property_name}</td>
@@ -486,7 +544,7 @@ export default function HostDashboard() {
                                                     <td className="py-2 px-2">{getStatusBadge(b.status, b.displayStatus)}</td>
                                                 </tr>
                                             ))}
-                                            {bookings.length === 0 && (
+                                            {filteredBookings.length === 0 && (
                                                 <tr><td colSpan="5" className="py-6 text-center text-gray-400">Chưa có đơn đặt phòng</td></tr>
                                             )}
                                         </tbody>

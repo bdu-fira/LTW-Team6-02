@@ -13,6 +13,8 @@ export default function Admin() {
     console.log("Admin component mounting...");
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('dashboard');
+    const [timeRange, setTimeRange] = useState('all');
+    const timeRangeRef = useRef(timeRange);
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tabLoading, setTabLoading] = useState(false);
@@ -92,10 +94,17 @@ export default function Admin() {
             return;
         }
         setCurrentUser(user);
-        fetchStats();
+        // fetchStats() is now handled by a separate useEffect watching timeRange and currentUser
 
         return () => clearTimeout(timer);
     }, [navigate]);
+
+    useEffect(() => {
+        timeRangeRef.current = timeRange;
+        if (currentUser && activeTab === 'dashboard') {
+            fetchStats();
+        }
+    }, [timeRange, activeTab, currentUser]);
 
     useEffect(() => {
         if (activeTab === 'users') fetchUsers();
@@ -200,7 +209,7 @@ export default function Admin() {
     const fetchStats = async () => {
         console.log("Fetching admin stats...");
         try {
-            const res = await api.get('/api/admin/stats');
+            const res = await api.get(`/api/admin/stats?timeRange=${timeRangeRef.current}`);
             console.log("Stats fetched successfully:", res.data);
             setStats(res.data);
         } catch (err) {
@@ -474,23 +483,6 @@ export default function Admin() {
                         <span className="material-symbols-outlined">history</span>
                         Nhật ký hoạt động
                     </button>
-                    <div className="pt-4 pb-2 px-4">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Simulator Tools</p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/admin/sms-clone')}
-                        className="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                        <span className="material-symbols-outlined">smartphone</span>
-                        SMS Virtual
-                    </button>
-                    <button
-                        onClick={() => navigate('/admin/email-clone')}
-                        className="w-full text-left px-4 py-2.5 rounded-lg flex items-center gap-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                        <span className="material-symbols-outlined">mail</span>
-                        Email Virtual
-                    </button>
                 </nav>
                 <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
                     <button
@@ -524,7 +516,21 @@ export default function Admin() {
                     <div>
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
-                            <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                            <div className="flex items-center gap-4">
+                                <select 
+                                    value={timeRange} 
+                                    onChange={(e) => setTimeRange(e.target.value)}
+                                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary text-gray-600 bg-white"
+                                >
+                                    <option value="today">Hôm nay</option>
+                                    <option value="7days">7 ngày qua</option>
+                                    <option value="month">Tháng này</option>
+                                    <option value="quarter">Quý này</option>
+                                    <option value="year">Năm nay</option>
+                                    <option value="all">Tất cả thời gian</option>
+                                </select>
+                                <p className="text-xs text-gray-400">Cập nhật lúc {new Date().toLocaleString('vi-VN')}</p>
+                            </div>
                         </div>
 
                         {/* Stats Cards */}
@@ -579,7 +585,9 @@ export default function Admin() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-800 mb-1">Doanh thu theo tháng</h3>
-                                <p className="text-[10px] text-gray-400 mb-3">6 tháng gần nhất</p>
+                                <p className="text-[10px] text-gray-400 mb-3">
+                                    {timeRange === 'today' ? 'Hôm nay' : timeRange === '7days' ? '7 ngày qua' : timeRange === 'month' ? 'Tháng này' : timeRange === 'quarter' ? 'Quý này' : timeRange === 'year' ? 'Năm nay' : 'Tất cả thời gian'}
+                                </p>
                                 <div style={{ width: '100%', height: 240 }}>
                                     <ResponsiveContainer>
                                         <AreaChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -606,7 +614,9 @@ export default function Admin() {
                             </div>
                             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                                 <h3 className="text-sm font-bold text-gray-800 mb-1">Lượt truy cập</h3>
-                                <p className="text-[10px] text-gray-400 mb-3">7 ngày gần nhất</p>
+                                <p className="text-[10px] text-gray-400 mb-3">
+                                    {timeRange === 'today' ? 'Hôm nay' : timeRange === '7days' ? '7 ngày qua' : timeRange === 'month' ? 'Tháng này' : timeRange === 'quarter' ? 'Quý này' : timeRange === 'year' ? 'Năm nay' : 'Tất cả thời gian'}
+                                </p>
                                 <div style={{ width: '100%', height: 240 }}>
                                     <ResponsiveContainer>
                                         <BarChart data={stats.dailyVisits} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
