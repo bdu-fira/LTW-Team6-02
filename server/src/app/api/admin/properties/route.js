@@ -36,17 +36,14 @@ export async function GET(req) {
             params
         );
 
-        // Get properties with host info and room types
+        // Get properties with host info
         const [properties] = await db.query(`
             SELECT
                 p.id, p.name, p.type, p.location, p.price_display, p.is_hot, p.status as property_status, p.created_at,
-                u.id as host_id, u.name as host_name, u.email as host_email,
-                GROUP_CONCAT(rt.name SEPARATOR ', ') as room_types
+                u.id as host_id, u.name as host_name, u.email as host_email
             FROM properties p
             LEFT JOIN users u ON p.host_id = u.id
-            LEFT JOIN room_types rt ON p.id = rt.property_id
             WHERE ${whereClause}
-            GROUP BY p.id
             ORDER BY p.created_at DESC
             LIMIT ? OFFSET ?
         `, [...params, limit, offset]);

@@ -10,7 +10,7 @@ export async function GET(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         const [rooms] = await db.execute(
             'SELECT * FROM room_types WHERE property_id = ? ORDER BY price ASC',
@@ -32,7 +32,7 @@ export async function POST(req, { params }) {
             return NextResponse.json({ message: authResult.error }, { status: authResult.status });
         }
 
-        const { id } = params;
+        const { id } = await params;
         const body = await req.json();
         const { name, price, total_allotment, max_adults, max_children, room_size, bed_type } = body;
 
