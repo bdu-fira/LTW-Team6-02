@@ -34,9 +34,12 @@ export async function GET(req) {
         const [bookings] = await db.query(`
             SELECT
                 b.id, b.check_in, b.check_out, b.number_of_rooms, b.total_price, b.status,
-                b.special_requests, b.created_at,
+                b.special_requests, b.created_at, b.guest_name, b.guest_phone,
                 p.id as property_id, p.name as property_name, p.location as property_location,
-                u.id as user_id, u.name as user_name, u.email as user_email,
+                u.id as user_id, 
+                COALESCE(b.guest_name, u.name) as user_name, 
+                COALESCE(b.guest_phone, u.phone, u.email) as user_contact,
+                u.email as user_email,
                 rt.name as room_type_name
             FROM bookings b
             LEFT JOIN properties p ON b.property_id = p.id

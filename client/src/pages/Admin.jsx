@@ -743,7 +743,7 @@ export default function Admin() {
                                     <tr>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">ID</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Tên</th>
-                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Email</th>
+                                        <th className="text-left py-3 px-4 font-semibold text-gray-600">Liên hệ</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Role</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Ngày tạo</th>
                                         <th className="text-left py-3 px-4 font-semibold text-gray-600">Thao tác</th>
@@ -757,7 +757,7 @@ export default function Admin() {
                                                 <img src={user.avatar} alt="" className="w-8 h-8 rounded-full" />
                                                 {user.name}
                                             </td>
-                                            <td className="py-3 px-4">{user.email}</td>
+                                            <td className="py-3 px-4">{user.email?.includes('@phone.system') ? user.email.split('@')[0] : user.email}</td>
                                             <td className="py-3 px-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-red-100 text-red-800' :
                                                     user.role === 'host' ? 'bg-purple-100 text-purple-800' :
@@ -1166,7 +1166,7 @@ function UserModal({ user, onSave, onClose }) {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Email</label>
+                        <label className="block text-sm font-medium mb-1">Liên hệ (Email/SĐT)</label>
                         <input
                             type="email"
                             value={formData.email}
@@ -1258,8 +1258,12 @@ function BookingModal({ booking, onClose }) {
                             <p className="font-medium">{booking.user_name}</p>
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500">Email</p>
-                            <p className="font-medium">{booking.user_email}</p>
+                            <p className="text-sm text-gray-500">Liên hệ</p>
+                            <p className="font-medium">
+                                {booking.user_contact?.includes('@phone.system') 
+                                    ? booking.user_contact.split('@')[0] 
+                                    : booking.user_contact}
+                            </p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Room Type</p>

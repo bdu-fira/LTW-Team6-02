@@ -20,7 +20,7 @@ export default function HostDashboard() {
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split('T')[0]);
     const [timeRange, setTimeRange] = useState('all');
-    const [walkInModal, setWalkInModal] = useState({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
+    const [walkInModal, setWalkInModal] = useState({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '', guestName: '', guestPhone: '' });
     const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
     // Room Management states
@@ -378,12 +378,14 @@ export default function HostDashboard() {
             propertyId,
             roomTypeId,
             checkIn: defaultCheckIn,
-            checkOut: defaultCheckOut
+            checkOut: defaultCheckOut,
+            guestName: '',
+            guestPhone: ''
         });
     };
 
     const submitWalkInBooking = async () => {
-        const { propertyId, roomTypeId, checkIn, checkOut } = walkInModal;
+        const { propertyId, roomTypeId, checkIn, checkOut, guestName, guestPhone } = walkInModal;
         if (!checkIn || !checkOut) {
             alert('Vui lòng chọn ngày Check-in và Check-out');
             return;
@@ -400,7 +402,9 @@ export default function HostDashboard() {
                 room_type_id: roomTypeId,
                 check_in: checkIn,
                 check_out: checkOut,
-                number_of_rooms: 1
+                number_of_rooms: 1,
+                guest_name: guestName,
+                guest_phone: guestPhone
             });
             alert('Đã thêm lịch thành công!');
             setWalkInModal({ isOpen: false, propertyId: null, roomTypeId: null, checkIn: '', checkOut: '' });
@@ -1139,7 +1143,14 @@ export default function HostDashboard() {
                                                         <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0">
                                                             <img src={booking.customer_avatar || '/placeholder.jpg'} alt="" className="w-full h-full object-cover" />
                                                         </div>
-                                                        <span className="font-medium truncate max-w-[120px]">{booking.customer_name}</span>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium truncate max-w-[120px]">{booking.customer_name}</span>
+                                                            <span className="text-[10px] text-gray-500 truncate max-w-[120px]">
+                                                                {booking.customer_contact?.includes('@phone.system') 
+                                                                    ? booking.customer_contact.split('@')[0] 
+                                                                    : booking.customer_contact}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="py-4 px-5">{formatDate(booking.check_in)}</td>
@@ -1387,7 +1398,11 @@ export default function HostDashboard() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-gray-800 text-sm">{booking.customer_name}</p>
-                                                                <p className="text-[10px] text-gray-500">{booking.customer_phone || 'N/A'}</p>
+                                                                <p className="text-[10px] text-gray-500">
+                                                                    {booking.customer_contact?.includes('@phone.system') 
+                                                                        ? booking.customer_contact.split('@')[0] 
+                                                                        : (booking.customer_contact || 'N/A')}
+                                                                </p>
                                                             </div>
                                                         </div>
 
@@ -1481,6 +1496,26 @@ export default function HostDashboard() {
                                         className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-700"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Tên khách hàng</label>
+                                    <input
+                                        type="text"
+                                        placeholder="VD: Nguyễn Văn A"
+                                        value={walkInModal.guestName}
+                                        onChange={(e) => setWalkInModal({ ...walkInModal, guestName: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-700 font-medium"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Số điện thoại</label>
+                                    <input
+                                        type="text"
+                                        placeholder="0123456789"
+                                        value={walkInModal.guestPhone}
+                                        onChange={(e) => setWalkInModal({ ...walkInModal, guestPhone: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-700 font-medium"
+                                    />
+                                </div>
                             </div>
                             <div className="mt-8 flex justify-end gap-3">
                                 <button
@@ -1548,9 +1583,9 @@ export default function HostDashboard() {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                                {/* Left: Room Info */}
-                                <div className="md:col-span-7 space-y-6">
+                            <div className="flex flex-col gap-6">
+                                {/* Room Info Group */}
+                                <div className="space-y-6">
                                     <div>
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block ml-1">Thông tin loại phòng</label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1612,127 +1647,45 @@ export default function HostDashboard() {
                                             </div>
                                         </div>
                                     </div>
-
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block ml-1">Tiện ích phòng</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {roomAmenities.map(amenity => (
-                                                <button
-                                                    key={amenity.id}
-                                                    onClick={() => toggleAmenity(amenity.id, 'room')}
-                                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${
-                                                        (editingRoomType ? (editingRoomType.amenities || []) : newRoom.amenities).includes(amenity.id)
-                                                            ? 'bg-primary border-primary text-white'
-                                                            : 'bg-white border-gray-100 text-gray-500 hover:border-primary/30'
-                                                    }`}
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">{amenity.icon}</span>
-                                                    {amenity.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
                                 </div>
 
-                                {/* Right: Image & Capacity */}
-                                <div className="md:col-span-5 space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block ml-1">Ảnh loại phòng</label>
-                                        <div className="relative group overflow-hidden rounded-[2rem] border-2 border-dashed border-gray-200 hover:border-primary transition-colors bg-gray-50 aspect-video flex flex-col items-center justify-center cursor-pointer">
-                                            {(editingRoomType?.imagePreview || newRoom.imagePreview) ? (
-                                                <img src={editingRoomType?.imagePreview || newRoom.imagePreview} className="w-full h-full object-cover" alt="" />
-                                            ) : (
-                                                <>
-                                                    <span className="material-symbols-outlined text-3xl text-gray-300">add_a_photo</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 mt-2">Chọn ảnh phòng</span>
-                                                </>
-                                            )}
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => handleFileChange(e, 'room')}
-                                                className="absolute inset-0 opacity-0 cursor-pointer"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="p-5 bg-gray-50/50 border border-gray-100 rounded-[2rem]">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block text-center">Sức chứa tối đa</label>
-                                        <div className="flex items-center justify-center gap-8">
-                                            <div className="text-center">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Người lớn</p>
-                                                <div className="flex items-center gap-3">
-                                                    <button onClick={() => {
-                                                        const val = editingRoomType ? editingRoomType.max_adults : newRoom.max_adults;
-                                                        if (val > 1) {
-                                                            editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: val - 1 }) : setNewRoom({ ...newRoom, max_adults: val - 1 });
-                                                        }
-                                                    }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">-</button>
-                                                    <span className="font-bold">{editingRoomType ? editingRoomType.max_adults : newRoom.max_adults}</span>
-                                                    <button onClick={() => {
-                                                        const val = editingRoomType ? editingRoomType.max_adults : newRoom.max_adults;
-                                                        editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: val + 1 }) : setNewRoom({ ...newRoom, max_adults: val + 1 });
-                                                    }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">+</button>
-                                                </div>
+                                {/* Capacity Group */}
+                                <div className="p-5 bg-gray-50/50 border border-gray-100 rounded-[2rem]">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 block text-center">Sức chứa tối đa</label>
+                                    <div className="flex items-center justify-center gap-8">
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Người lớn</p>
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => {
+                                                    const val = editingRoomType ? editingRoomType.max_adults : newRoom.max_adults;
+                                                    if (val > 1) {
+                                                        editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: val - 1 }) : setNewRoom({ ...newRoom, max_adults: val - 1 });
+                                                    }
+                                                }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">-</button>
+                                                <span className="font-bold">{editingRoomType ? editingRoomType.max_adults : newRoom.max_adults}</span>
+                                                <button onClick={() => {
+                                                    const val = editingRoomType ? editingRoomType.max_adults : newRoom.max_adults;
+                                                    editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: val + 1 }) : setNewRoom({ ...newRoom, max_adults: val + 1 });
+                                                }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">+</button>
                                             </div>
-                                            <div className="text-center">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Trẻ em</p>
-                                                <div className="flex items-center gap-3">
-                                                    <button onClick={() => {
-                                                        const val = editingRoomType ? editingRoomType.max_children : newRoom.max_children;
-                                                        if (val > 0) {
-                                                            editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: val - 1 }) : setNewRoom({ ...newRoom, max_children: val - 1 });
-                                                        }
-                                                    }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">-</button>
-                                                    <span className="font-bold">{editingRoomType ? editingRoomType.max_children : newRoom.max_children}</span>
-                                                    <button onClick={() => {
-                                                        const val = editingRoomType ? editingRoomType.max_children : newRoom.max_children;
-                                                        editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: val + 1 }) : setNewRoom({ ...newRoom, max_children: val + 1 });
-                                                    }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">+</button>
-                                                </div>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Trẻ em</p>
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => {
+                                                    const val = editingRoomType ? editingRoomType.max_children : newRoom.max_children;
+                                                    if (val > 0) {
+                                                        editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: val - 1 }) : setNewRoom({ ...newRoom, max_children: val - 1 });
+                                                    }
+                                                }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">-</button>
+                                                <span className="font-bold">{editingRoomType ? editingRoomType.max_children : newRoom.max_children}</span>
+                                                <button onClick={() => {
+                                                    const val = editingRoomType ? editingRoomType.max_children : newRoom.max_children;
+                                                    editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: val + 1 }) : setNewRoom({ ...newRoom, max_children: val + 1 });
+                                                }} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">+</button>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">Người lớn</label>
-                                    <input
-                                        type="number"
-                                        value={editingRoomType ? editingRoomType.max_adults : newRoom.max_adults}
-                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, max_adults: e.target.value }) : setNewRoom({ ...newRoom, max_adults: e.target.value })}
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">Trẻ em</label>
-                                    <input
-                                        type="number"
-                                        value={editingRoomType ? editingRoomType.max_children : newRoom.max_children}
-                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, max_children: e.target.value }) : setNewRoom({ ...newRoom, max_children: e.target.value })}
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">Diện tích m²</label>
-                                    <input
-                                        type="number"
-                                        value={editingRoomType ? editingRoomType.room_size : newRoom.room_size}
-                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, room_size: e.target.value }) : setNewRoom({ ...newRoom, room_size: e.target.value })}
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">Loại giường</label>
-                                    <input
-                                        type="text"
-                                        value={editingRoomType ? editingRoomType.bed_type : newRoom.bed_type}
-                                        onChange={(e) => editingRoomType ? setEditingRoomType({ ...editingRoomType, bed_type: e.target.value }) : setNewRoom({ ...newRoom, bed_type: e.target.value })}
-                                        placeholder="VD: King Bed"
-                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-primary transition-all"
-                                    />
                                 </div>
                             </div>
 

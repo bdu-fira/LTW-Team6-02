@@ -22,10 +22,13 @@ export async function GET(req) {
         const [bookings] = await db.execute(`
             SELECT
                 b.id, b.check_in, b.check_out, b.number_of_rooms, b.total_price, b.status,
-                b.special_requests, b.created_at,
+                b.special_requests, b.created_at, b.guest_name, b.guest_phone,
                 p.id as property_id, p.name as property_name, p.location as property_location,
                 rt.id as room_type_id, rt.name as room_type_name,
-                u.id as customer_id, u.name as customer_name, u.email as customer_email,
+                u.id as customer_id, 
+                COALESCE(b.guest_name, u.name) as customer_name, 
+                COALESCE(b.guest_phone, u.phone, u.email) as customer_contact,
+                u.email as customer_email,
                 u.phone as customer_phone, u.avatar as customer_avatar,
                 pi.image_url as property_image
             FROM bookings b

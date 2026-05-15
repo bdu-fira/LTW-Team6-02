@@ -79,9 +79,9 @@ export async function POST(req) {
 
                 const finalStatus = bookingStatus || 'pending';
                 const [result] = await connection.execute(
-                    `INSERT INTO bookings (customer_id, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, status, special_requests)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, finalStatus, special_requests || null]
+                    `INSERT INTO bookings (customer_id, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, status, special_requests, guest_name, guest_phone)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, finalStatus, special_requests || null, guest_name, cleanPhone]
                 );
 
                 const bookingId = result.insertId;
@@ -181,9 +181,9 @@ export async function POST(req) {
                 // Tạo booking
                 const finalStatus = bookingStatus || 'pending';
                 const [bookingResult] = await connection.execute(
-                    `INSERT INTO bookings (customer_id, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, status, special_requests)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [newUserId, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, finalStatus, special_requests || null]
+                    `INSERT INTO bookings (customer_id, property_id, room_type_id, check_in, check_out, number_of_rooms, total_price, status, special_requests, guest_name, guest_phone)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [newUserId, property_id, room_type_id, check_in, check_out, number_of_rooms || 1, total_price, finalStatus, special_requests || null, guest_name, cleanPhone]
                 );
 
                 const bookingId = bookingResult.insertId;

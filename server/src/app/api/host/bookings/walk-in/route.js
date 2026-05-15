@@ -13,7 +13,7 @@ export async function POST(req) {
         const hostId = authResult.user.id;
 
         const body = await req.json();
-        const { property_id, room_type_id, check_in, check_out, number_of_rooms = 1 } = body;
+        const { property_id, room_type_id, check_in, check_out, number_of_rooms = 1, guest_name, guest_phone } = body;
 
         if (!property_id || !room_type_id || !check_out || !check_in) {
             return NextResponse.json({ message: 'Thiếu thông tin đặt phòng' }, { status: 400 });
@@ -62,9 +62,9 @@ export async function POST(req) {
             INSERT INTO bookings (
                 customer_id, property_id, room_type_id, 
                 check_in, check_out, number_of_rooms, 
-                total_price, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [walkInUserId, property_id, room_type_id, check_in, check_out, number_of_rooms, totalPrice, autoStatus]);
+                total_price, status, guest_name, guest_phone
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [walkInUserId, property_id, room_type_id, check_in, check_out, number_of_rooms, totalPrice, autoStatus, guest_name || 'Khách vãng lai', guest_phone || '']);
 
         const bookingId = bookingResult.insertId;
 
